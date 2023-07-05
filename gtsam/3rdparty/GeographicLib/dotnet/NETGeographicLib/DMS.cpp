@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include "GeographicLib/DMS.hpp"
@@ -33,16 +33,29 @@ double DMS::Decode( System::String^ dms,
 }
 
 //*****************************************************************************
+double DMS::Decode(System::String^ str)
+{
+    try
+    {
+        return GeographicLib::DMS::Decode(StringConvert::ManagedToUnmanaged(str));
+    }
+    catch ( const std::exception& xcpt )
+    {
+        throw gcnew GeographicErr( xcpt.what() );
+    }
+}
+
+//*****************************************************************************
 void DMS::DecodeLatLon(System::String^ dmsa, System::String^ dmsb,
                         [System::Runtime::InteropServices::Out] double% lat,
                         [System::Runtime::InteropServices::Out] double% lon,
-                        bool longfirst )
+                        bool swaplatlong )
 {
     try
     {
         double llat, llon;
         GeographicLib::DMS::DecodeLatLon( StringConvert::ManagedToUnmanaged( dmsa ),
-            StringConvert::ManagedToUnmanaged( dmsb ), llat, llon, longfirst );
+            StringConvert::ManagedToUnmanaged( dmsb ), llat, llon, swaplatlong );
         lat = llat;
         lon = llon;
     }

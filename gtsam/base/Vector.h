@@ -15,7 +15,6 @@
  * @author  Kai Ni
  * @author  Frank Dellaert
  * @author  Alex Hagiopol
- * @author  Varun Agrawal
  */
 
 // \callgraph
@@ -48,53 +47,21 @@ static const Eigen::MatrixBase<Vector3>::ConstantReturnType Z_3x1 = Vector3::Zer
 // Create handy typedefs and constants for vectors with N>3
 // VectorN and Z_Nx1, for N=1..9
 #define GTSAM_MAKE_VECTOR_DEFS(N)                \
-  using Vector##N = Eigen::Matrix<double, N, 1>; \
+  typedef Eigen::Matrix<double, N, 1> Vector##N; \
   static const Eigen::MatrixBase<Vector##N>::ConstantReturnType Z_##N##x1 = Vector##N::Zero();
 
-GTSAM_MAKE_VECTOR_DEFS(4)
-GTSAM_MAKE_VECTOR_DEFS(5)
-GTSAM_MAKE_VECTOR_DEFS(6)
-GTSAM_MAKE_VECTOR_DEFS(7)
-GTSAM_MAKE_VECTOR_DEFS(8)
-GTSAM_MAKE_VECTOR_DEFS(9)
-GTSAM_MAKE_VECTOR_DEFS(10)
-GTSAM_MAKE_VECTOR_DEFS(11)
-GTSAM_MAKE_VECTOR_DEFS(12)
-GTSAM_MAKE_VECTOR_DEFS(15)
+GTSAM_MAKE_VECTOR_DEFS(4);
+GTSAM_MAKE_VECTOR_DEFS(5);
+GTSAM_MAKE_VECTOR_DEFS(6);
+GTSAM_MAKE_VECTOR_DEFS(7);
+GTSAM_MAKE_VECTOR_DEFS(8);
+GTSAM_MAKE_VECTOR_DEFS(9);
+GTSAM_MAKE_VECTOR_DEFS(10);
+GTSAM_MAKE_VECTOR_DEFS(11);
+GTSAM_MAKE_VECTOR_DEFS(12);
 
 typedef Eigen::VectorBlock<Vector> SubVector;
 typedef Eigen::VectorBlock<const Vector> ConstSubVector;
-
-/**
-  * Ensure we are not including a different version of Eigen in user code than
-  * while compiling gtsam, since it can lead to hard-to-understand runtime
-  * crashes.
-  */
-#if defined(GTSAM_EIGEN_VERSION_WORLD)
-static_assert(
-    GTSAM_EIGEN_VERSION_WORLD==EIGEN_WORLD_VERSION &&
-    GTSAM_EIGEN_VERSION_MAJOR==EIGEN_MAJOR_VERSION,
-  "Error: GTSAM was built against a different version of Eigen");
-#endif
-
-/**
- * Numerically stable function for comparing if floating point values are equal
- * within epsilon tolerance.
- * Used for vector and matrix comparison with C++11 compatible functions.
- *
- * If either value is NaN or Inf, we check for both values to be NaN or Inf
- * respectively for the comparison to be true.
- * If one is NaN/Inf and the other is not, returns false.
- *
- * @param check_relative_also is a flag which toggles additional checking for
- * relative error. This means that if either the absolute error or the relative
- * error is within the tolerance, the result will be true.
- * By default, the flag is true.
- *
- * Return true if two numbers are close wrt tol.
- */
-GTSAM_EXPORT bool fpEqual(double a, double b, double tol,
-                          bool check_relative_also = true);
 
 /**
  * print without optional string, must specify cout yourself
@@ -205,6 +172,26 @@ inline double inner_prod(const V1 &a, const V2& b) {
 }
 
 /**
+ * BLAS Level 1 scal: x <- alpha*x
+ * \deprecated: use operators instead
+ */
+inline void scal(double alpha, Vector& x) { x *= alpha; }
+
+/**
+ * BLAS Level 1 axpy: y <- alpha*x + y
+ * \deprecated: use operators instead
+ */
+template<class V1, class V2>
+inline void axpy(double alpha, const V1& x, V2& y) {
+  assert (y.size()==x.size());
+  y += alpha * x;
+}
+inline void axpy(double alpha, const Vector& x, SubVector y) {
+  assert (y.size()==x.size());
+  y += alpha * x;
+}
+
+/**
  * house(x,j) computes HouseHolder vector v and scaling factor beta
  *  from x, such that the corresponding Householder reflection zeroes out
  *  all but x.(j), j is base 0. Golub & Van Loan p 210.
@@ -243,4 +230,66 @@ GTSAM_EXPORT Vector concatVectors(const std::list<Vector>& vs);
  * concatenate Vectors
  */
 GTSAM_EXPORT Vector concatVectors(size_t nrVectors, ...);
-}  // namespace gtsam
+
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+inline Vector abs(const Vector& v){return v.cwiseAbs();}
+inline Vector basis(size_t n, size_t i) { return Vector::Unit(n,i); }
+inline Vector delta(size_t n, size_t i, double value){ return Vector::Unit(n, i) * value;}
+inline size_t dim(const Vector& v) { return v.size(); }
+inline Vector ediv(const Vector &a, const Vector &b) {assert (b.size()==a.size()); return a.cwiseQuotient(b);}
+inline Vector esqrt(const Vector& v) { return v.cwiseSqrt();}
+inline Vector emul(const Vector &a, const Vector &b) {assert (b.size()==a.size()); return a.cwiseProduct(b);}
+inline double max(const Vector &a){return a.maxCoeff();}
+inline double norm_2(const Vector& v) {return v.norm();}
+inline Vector ones(size_t n) { return Vector::Ones(n); }
+inline Vector reciprocal(const Vector &a) {return a.array().inverse();}
+inline Vector repeat(size_t n, double value) {return Vector::Constant(n, value);}
+inline const Vector sub(const Vector &v, size_t i1, size_t i2) {return v.segment(i1,i2-i1);}
+inline void subInsert(Vector& fullVector, const Vector& subVector, size_t i) {fullVector.segment(i, subVector.size()) = subVector;}
+inline double sum(const Vector &a){return a.sum();}
+inline bool zero(const Vector& v){ return v.isZero(); }
+inline Vector zero(size_t n) { return Vector::Zero(n); }
+#endif
+} // namespace gtsam
+
+#include <boost/serialization/nvp.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/split_free.hpp>
+
+namespace boost {
+  namespace serialization {
+
+    // split version - copies into an STL vector for serialization
+    template<class Archive>
+    void save(Archive & ar, const gtsam::Vector & v, unsigned int /*version*/) {
+      const size_t size = v.size();
+      ar << BOOST_SERIALIZATION_NVP(size);
+      ar << make_nvp("data", make_array(v.data(), v.size()));
+    }
+
+    template<class Archive>
+    void load(Archive & ar, gtsam::Vector & v, unsigned int /*version*/) {
+      size_t size;
+      ar >> BOOST_SERIALIZATION_NVP(size);
+      v.resize(size);
+      ar >> make_nvp("data", make_array(v.data(), v.size()));
+    }
+
+    // split version - copies into an STL vector for serialization
+    template<class Archive, int D>
+    void save(Archive & ar, const Eigen::Matrix<double,D,1> & v, unsigned int /*version*/) {
+      ar << make_nvp("data", make_array(v.data(), v.RowsAtCompileTime));
+    }
+
+    template<class Archive, int D>
+    void load(Archive & ar, Eigen::Matrix<double,D,1> & v, unsigned int /*version*/) {
+      ar >> make_nvp("data", make_array(v.data(), v.RowsAtCompileTime));
+    }
+
+  } // namespace serialization
+} // namespace boost
+
+BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector)
+BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector2)
+BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector3)
+BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Vector6)

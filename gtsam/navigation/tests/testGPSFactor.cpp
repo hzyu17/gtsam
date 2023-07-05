@@ -22,18 +22,11 @@
 
 #include <CppUnitLite/TestHarness.h>
 
-#include <GeographicLib/Config.h>
 #include <GeographicLib/LocalCartesian.hpp>
 
 using namespace std;
 using namespace gtsam;
 using namespace GeographicLib;
-
-#if GEOGRAPHICLIB_VERSION_MINOR<37
-static const auto& kWGS84 = Geocentric::WGS84;
-#else
-static const auto& kWGS84 = Geocentric::WGS84();
-#endif
 
 // *************************************************************************
 namespace example {
@@ -41,7 +34,7 @@ namespace example {
 const double lat0 = 33.86998, lon0 = -84.30626, h0 = 274;
 
 // Convert from GPS to ENU
-LocalCartesian origin_ENU(lat0, lon0, h0, kWGS84);
+LocalCartesian origin_ENU(lat0, lon0, h0, Geocentric::WGS84);
 
 // Dekalb-Peachtree Airport runway 2L
 const double lat = 33.87071, lon = -84.30482, h = 274;
@@ -68,8 +61,8 @@ TEST( GPSFactor, Constructor ) {
   EXPECT(assert_equal(Z_3x1,factor.evaluateError(T),1e-5));
 
   // Calculate numerical derivatives
-  Matrix expectedH = numericalDerivative11<Vector, Pose3>(
-      [&factor](const Pose3& T) { return factor.evaluateError(T); }, T);
+  Matrix expectedH = numericalDerivative11<Vector,Pose3>(
+      boost::bind(&GPSFactor::evaluateError, &factor, _1, boost::none), T);
 
   // Use the factor to calculate the derivative
   Matrix actualH;
@@ -97,8 +90,8 @@ TEST( GPSFactor2, Constructor ) {
   EXPECT(assert_equal(Z_3x1,factor.evaluateError(T),1e-5));
 
   // Calculate numerical derivatives
-  Matrix expectedH = numericalDerivative11<Vector, NavState>(
-      [&factor](const NavState& T) { return factor.evaluateError(T); }, T);
+  Matrix expectedH = numericalDerivative11<Vector,NavState>(
+      boost::bind(&GPSFactor2::evaluateError, &factor, _1, boost::none), T);
 
   // Use the factor to calculate the derivative
   Matrix actualH;
@@ -114,7 +107,8 @@ TEST(GPSData, init) {
   // GPS Reading 1 will be ENU origin
   double t1 = 84831;
   Point3 NED1(0, 0, 0);
-  LocalCartesian enu(35.4393283333333, -119.062986666667, 275.54, kWGS84);
+  LocalCartesian enu(35.4393283333333, -119.062986666667, 275.54,
+      Geocentric::WGS84);
 
   // GPS Readin 2
   double t2 = 84831.5;
@@ -123,7 +117,9 @@ TEST(GPSData, init) {
   Point3 NED2(N, E, -U);
 
   // Estimate initial state
-  const auto [T, nV] = GPSFactor::EstimateState(t1, NED1, t2, NED2, 84831.0796);
+  Pose3 T;
+  Vector3 nV;
+  boost::tie(T, nV) = GPSFactor::EstimateState(t1, NED1, t2, NED2, 84831.0796);
 
   // Check values values
   EXPECT(assert_equal((Vector )Vector3(29.9575, -29.0564, -1.95993), nV, 1e-4));

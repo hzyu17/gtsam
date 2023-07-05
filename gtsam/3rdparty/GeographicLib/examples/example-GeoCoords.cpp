@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <exception>
+#include <string>
 #include <GeographicLib/GeoCoords.hpp>
 
 using namespace std;
@@ -23,4 +24,5 @@ int main() {
     cerr << "Caught exception: " << e.what() << "\n";
     return 1;
   }
+  return 0;
 }

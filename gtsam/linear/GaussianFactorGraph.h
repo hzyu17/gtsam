@@ -21,14 +21,12 @@
 
 #pragma once
 
-#include <cstddef>
-#include <gtsam/inference/EliminateableFactorGraph.h>
 #include <gtsam/inference/FactorGraph.h>
-#include <gtsam/linear/Errors.h>  // Included here instead of fw-declared so we can use Errors::iterator
+#include <gtsam/inference/EliminateableFactorGraph.h>
 #include <gtsam/linear/GaussianFactor.h>
-#include <gtsam/linear/HessianFactor.h>
 #include <gtsam/linear/JacobianFactor.h>
-#include <gtsam/linear/VectorValues.h>
+#include <gtsam/linear/HessianFactor.h>
+#include <gtsam/linear/Errors.h> // Included here instead of fw-declared so we can use Errors::iterator
 
 namespace gtsam {
 
@@ -52,15 +50,9 @@ namespace gtsam {
     typedef GaussianBayesTree BayesTreeType;             ///< Type of Bayes tree
     typedef GaussianJunctionTree JunctionTreeType;       ///< Type of Junction tree
     /// The default dense elimination function
-    static std::pair<std::shared_ptr<ConditionalType>, std::shared_ptr<FactorType> >
+    static std::pair<boost::shared_ptr<ConditionalType>, boost::shared_ptr<FactorType> >
       DefaultEliminate(const FactorGraphType& factors, const Ordering& keys) {
         return EliminatePreferCholesky(factors, keys); }
-    /// The default ordering generation function
-    static Ordering DefaultOrderingFunc(
-        const FactorGraphType& graph,
-        std::optional<std::reference_wrapper<const VariableIndex>> variableIndex) {
-      return Ordering::Colamd((*variableIndex).get());
-    }
   };
 
   /* ************************************************************************* */
@@ -79,21 +71,10 @@ namespace gtsam {
     typedef GaussianFactorGraph This; ///< Typedef to this class
     typedef FactorGraph<GaussianFactor> Base; ///< Typedef to base factor graph type
     typedef EliminateableFactorGraph<This> BaseEliminateable; ///< Typedef to base elimination class
-    typedef std::shared_ptr<This> shared_ptr; ///< shared_ptr to this class
+    typedef boost::shared_ptr<This> shared_ptr; ///< shared_ptr to this class
 
-    /// @name Constructors
-    /// @{
-    
     /** Default constructor */
     GaussianFactorGraph() {}
-
-    /**
-     * Construct from an initializer lists of GaussianFactor shared pointers.
-     * Example:
-     *   GaussianFactorGraph graph = { factor1, factor2, factor3 };
-     */
-    GaussianFactorGraph(std::initializer_list<sharedFactor> factors) : Base(factors) {}
-    
 
     /** Construct from iterator over factors */
     template<typename ITERATOR>
@@ -107,19 +88,15 @@ namespace gtsam {
     template<class DERIVEDFACTOR>
     GaussianFactorGraph(const FactorGraph<DERIVEDFACTOR>& graph) : Base(graph) {}
 
-    /// @}
+    /** Virtual destructor */
+    virtual ~GaussianFactorGraph() {}
+
     /// @name Testable
     /// @{
 
     bool equals(const This& fg, double tol = 1e-9) const;
 
     /// @}
-
-    /// Check exact equality.
-    friend bool operator==(const GaussianFactorGraph& lhs,
-                            const GaussianFactorGraph& rhs) {
-      return lhs.isEqual(rhs);
-    }
 
     /** Add a factor by value - makes a copy */
     void add(const GaussianFactor& factor) { push_back(factor.clone()); }
@@ -165,10 +142,19 @@ namespace gtsam {
     std::map<Key, size_t> getKeyDimMap() const;
 
     /** unnormalized error */
-    double error(const VectorValues& x) const;
+    double error(const VectorValues& x) const {
+      double total_error = 0.;
+      for(const sharedFactor& factor: *this){
+        if(factor)
+          total_error += factor->error(x);
+      }
+      return total_error;
+    }
 
     /** Unnormalized probability. O(n) */
-    double probPrime(const VectorValues& c) const;
+    double probPrime(const VectorValues& c) const {
+      return exp(-0.5 * error(c));
+    }
 
     /**
      * Clone() performs a deep-copy of the graph, including all of the factors.
@@ -195,25 +181,15 @@ namespace gtsam {
     ///@{
 
     /**
-     * Returns a sparse augmented Jacbian matrix as a vector of i, j, and s,
-     * where i(k) and j(k) are the base 0 row and column indices, and s(k) is
-     * the entry as a double.
+     * Return vector of i, j, and s to generate an m-by-n sparse Jacobian matrix,
+     * where i(k) and j(k) are the base 0 row and column indices, s(k) a double.
      * The standard deviations are baked into A and b
-     * @return the sparse matrix as a std::vector of std::tuples
-     * @param ordering the column ordering
-     * @param[out] nrows The number of rows in the augmented Jacobian
-     * @param[out] ncols The number of columns in the augmented Jacobian
      */
-    std::vector<std::tuple<int, int, double> > sparseJacobian(
-        const Ordering& ordering, size_t& nrows, size_t& ncols) const;
-
-    /** Returns a sparse augmented Jacobian matrix with default ordering */
-    std::vector<std::tuple<int, int, double> > sparseJacobian() const;
+    std::vector<boost::tuple<size_t, size_t, double> > sparseJacobian() const;
 
     /**
-     * Matrix version of sparseJacobian: generates a 3*m matrix with [i,j,s]
-     * entries such that S(i(k),j(k)) = s(k), which can be given to MATLAB's
-     * sparse.  Note: i, j are 1-indexed.
+     * Matrix version of sparseJacobian: generates a 3*m matrix with [i,j,s] entries
+     * such that S(i(k),j(k)) = s(k), which can be given to MATLAB's sparse.
      * The standard deviations are baked into A and b
      */
     Matrix sparseJacobian_() const;
@@ -225,16 +201,7 @@ namespace gtsam {
      * \f$ \frac{1}{2} \Vert Ax-b \Vert^2 \f$.  See also
      * GaussianFactorGraph::jacobian and GaussianFactorGraph::sparseJacobian.
      */
-    Matrix augmentedJacobian(const Ordering& ordering) const;
-    
-    /**
-     * Return a dense \f$ [ \;A\;b\; ] \in \mathbb{R}^{m \times n+1} \f$
-     * Jacobian matrix, augmented with b with the noise models baked
-     * into A and b.  The negative log-likelihood is
-     * \f$ \frac{1}{2} \Vert Ax-b \Vert^2 \f$.  See also
-     * GaussianFactorGraph::jacobian and GaussianFactorGraph::sparseJacobian.
-     */
-    Matrix augmentedJacobian() const;
+    Matrix augmentedJacobian(boost::optional<const Ordering&> optionalOrdering = boost::none) const;
 
     /**
      * Return the dense Jacobian \f$ A \f$ and right-hand-side \f$ b \f$,
@@ -243,16 +210,7 @@ namespace gtsam {
      * GaussianFactorGraph::augmentedJacobian and
      * GaussianFactorGraph::sparseJacobian.
      */
-    std::pair<Matrix,Vector> jacobian(const Ordering& ordering) const;
-
-    /**
-     * Return the dense Jacobian \f$ A \f$ and right-hand-side \f$ b \f$,
-     * with the noise models baked into A and b. The negative log-likelihood
-     * is \f$ \frac{1}{2} \Vert Ax-b \Vert^2 \f$.  See also
-     * GaussianFactorGraph::augmentedJacobian and
-     * GaussianFactorGraph::sparseJacobian.
-     */
-    std::pair<Matrix,Vector> jacobian() const;
+    std::pair<Matrix,Vector> jacobian(boost::optional<const Ordering&> optionalOrdering = boost::none) const;
 
     /**
      * Return a dense \f$ \Lambda \in \mathbb{R}^{n+1 \times n+1} \f$ Hessian
@@ -265,20 +223,7 @@ namespace gtsam {
      and the negative log-likelihood is
      \f$ \frac{1}{2} x^T \Lambda x + \eta^T x + c \f$.
      */
-    Matrix augmentedHessian(const Ordering& ordering) const;
-
-    /**
-     * Return a dense \f$ \Lambda \in \mathbb{R}^{n+1 \times n+1} \f$ Hessian
-     * matrix, augmented with the information vector \f$ \eta \f$.  The
-     * augmented Hessian is
-     \f[ \left[ \begin{array}{ccc}
-     \Lambda & \eta \\
-     \eta^T & c
-     \end{array} \right] \f]
-     and the negative log-likelihood is
-     \f$ \frac{1}{2} x^T \Lambda x + \eta^T x + c \f$.
-     */
-    Matrix augmentedHessian() const;
+    Matrix augmentedHessian(boost::optional<const Ordering&> optionalOrdering = boost::none) const;
 
     /**
      * Return the dense Hessian \f$ \Lambda \f$ and information vector
@@ -286,15 +231,7 @@ namespace gtsam {
      * is \frac{1}{2} x^T \Lambda x + \eta^T x + c.  See also
      * GaussianFactorGraph::augmentedHessian.
      */
-    std::pair<Matrix,Vector> hessian(const Ordering& ordering) const;
-
-    /**
-     * Return the dense Hessian \f$ \Lambda \f$ and information vector
-     * \f$ \eta \f$, with the noise models baked in. The negative log-likelihood
-     * is \frac{1}{2} x^T \Lambda x + \eta^T x + c.  See also
-     * GaussianFactorGraph::augmentedHessian.
-     */
-    std::pair<Matrix,Vector> hessian() const;
+    std::pair<Matrix,Vector> hessian(boost::optional<const Ordering&> optionalOrdering = boost::none) const;
 
     /** Return only the diagonal of the Hessian A'*A, as a VectorValues */
     virtual VectorValues hessianDiagonal() const;
@@ -306,14 +243,7 @@ namespace gtsam {
      *  the dense elimination function specified in \c function (default EliminatePreferCholesky),
      *  followed by back-substitution in the Bayes tree resulting from elimination.  Is equivalent
      *  to calling graph.eliminateMultifrontal()->optimize(). */
-    VectorValues optimize(
-      const Eliminate& function = EliminationTraitsType::DefaultEliminate) const;
-
-    /** Solve the factor graph by performing multifrontal variable elimination in COLAMD order using
-     *  the dense elimination function specified in \c function (default EliminatePreferCholesky),
-     *  followed by back-substitution in the Bayes tree resulting from elimination.  Is equivalent
-     *  to calling graph.eliminateMultifrontal()->optimize(). */
-    VectorValues optimize(const Ordering&,
+    VectorValues optimize(OptionalOrdering ordering = boost::none,
       const Eliminate& function = EliminationTraitsType::DefaultEliminate) const;
 
     /**
@@ -389,25 +319,16 @@ namespace gtsam {
     /** In-place version e <- A*x that takes an iterator. */
     void multiplyInPlace(const VectorValues& x, const Errors::iterator& e) const;
 
-    void printErrors(
-        const VectorValues& x,
-        const std::string& str = "GaussianFactorGraph: ",
-        const KeyFormatter& keyFormatter = DefaultKeyFormatter,
-        const std::function<bool(const Factor* /*factor*/,
-                                 double /*whitenedError*/, size_t /*index*/)>&
-            printCondition =
-                [](const Factor*, double, size_t) { return true; }) const;
     /// @}
 
   private:
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
     /** Serialization function */
     friend class boost::serialization::access;
     template<class ARCHIVE>
     void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
       ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(Base);
     }
-#endif
+
   };
 
   /**
@@ -416,7 +337,7 @@ namespace gtsam {
    */
   GTSAM_EXPORT bool hasConstraints(const GaussianFactorGraph& factors);
 
-  /****** Linear Algebra Operations ******/
+  /****** Linear Algebra Opeations ******/
 
   ///* matrix-vector operations */
   //GTSAM_EXPORT void residual(const GaussianFactorGraph& fg, const VectorValues &x, VectorValues &r);

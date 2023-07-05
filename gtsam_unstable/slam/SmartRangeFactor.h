@@ -2,30 +2,30 @@
  * @file SmartRangeFactor.h
  *
  * @brief A smart factor for range-only SLAM that does initialization and marginalization
- *
+ * 
  * @date Sep 10, 2012
  * @author Alex Cunningham
  */
 
 #pragma once
 
-#include <gtsam_unstable/dllexport.h>
+#include <gtsam_unstable/base/dllexport.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/inference/Key.h>
 #include <gtsam/geometry/Pose2.h>
+#include <gtsam/base/timing.h>
 
 #include <list>
 #include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <optional>
 
 namespace gtsam {
 
 /**
  * Smart factor for range SLAM
- * @ingroup slam
+ * @addtogroup SLAM
  */
 class SmartRangeFactor: public NoiseModelFactor {
  protected:
@@ -43,10 +43,6 @@ class SmartRangeFactor: public NoiseModelFactor {
   double variance_;  ///< variance on noise
 
  public:
-
-  // Provide access to the Matrix& version of unwhitenedError
-  using NoiseModelFactor::unwhitenedError;
-
   /** Default constructor: don't use directly */
   SmartRangeFactor() {
   }
@@ -59,15 +55,11 @@ class SmartRangeFactor: public NoiseModelFactor {
       NoiseModelFactor(noiseModel::Isotropic::Sigma(1, s)), variance_(s * s) {
   }
 
-  ~SmartRangeFactor() override {
+  virtual ~SmartRangeFactor() {
   }
 
   /// Add a range measurement to a pose with given key.
   void addRange(Key key, double measuredRange) {
-    if(std::find(keys_.begin(), keys_.end(), key) != keys_.end()) {
-      throw std::invalid_argument(
-          "SmartRangeFactor::addRange: adding duplicate measurement for key.");
-    }
     keys_.push_back(key);
     measurements_.push_back(measuredRange);
     size_t n = keys_.size();
@@ -78,14 +70,14 @@ class SmartRangeFactor: public NoiseModelFactor {
   // Testable
 
   /** print */
-  void print(const std::string& s = "",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
+  virtual void print(const std::string& s = "",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
     std::cout << s << "SmartRangeFactor with " << size() << " measurements\n";
     NoiseModelFactor::print(s);
   }
 
   /** Check if two factors are equal */
-  bool equals(const NonlinearFactor& f, double tol = 1e-9) const override {
+  virtual bool equals(const NonlinearFactor& f, double tol = 1e-9) const {
     return false;
   }
 
@@ -97,6 +89,7 @@ class SmartRangeFactor: public NoiseModelFactor {
    * Raise runtime_error if not well defined.
    */
   Point2 triangulate(const Values& x) const {
+    // gttic_(triangulate);
     // create n circles corresponding to measured range around each pose
     std::list<Circle2> circles;
     size_t n = size();
@@ -106,8 +99,8 @@ class SmartRangeFactor: public NoiseModelFactor {
     }
 
     Circle2 circle1 = circles.front();
-    std::optional<Point2> best_fh;
-    std::optional<Circle2> bestCircle2 = std::nullopt;  // fixes issue #38
+    boost::optional<Point2> best_fh;
+    boost::optional<Circle2> bestCircle2;
 
     // loop over all circles
     for (const Circle2& it : circles) {
@@ -116,7 +109,7 @@ class SmartRangeFactor: public NoiseModelFactor {
       if (d < 1e-9)
         continue;  // skip circles that are in the same location
       // Find f and h, the intersection points in normalized circles
-      std::optional<Point2> fh = circleCircleIntersection(
+      boost::optional<Point2> fh = circleCircleIntersection(
           circle1.radius / d, it.radius / d);
       // Check if this pair is better by checking h = fh->y()
       // if h is large, the intersections are well defined.
@@ -143,12 +136,14 @@ class SmartRangeFactor: public NoiseModelFactor {
     } else {
       throw std::runtime_error("triangulate failed");
     }
+    // gttoc_(triangulate);
   }
 
   /**
    * Error function *without* the NoiseModel, \f$ z-h(x) \f$.
    */
-  Vector unwhitenedError(const Values& x, OptionalMatrixVecType H = nullptr) const override {
+  virtual Vector unwhitenedError(const Values& x,
+      boost::optional<std::vector<Matrix>&> H = boost::none) const {
     size_t n = size();
     if (n < 3) {
       if (H) {
@@ -179,8 +174,8 @@ class SmartRangeFactor: public NoiseModelFactor {
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 };

@@ -25,21 +25,26 @@
 #include <gtsam/linear/GaussianConditional.h>
 #include <gtsam/linear/VectorValues.h>
 
+#include <boost/assign/std/vector.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/range/iterator_range.hpp>
+#include <boost/range/adaptor/map.hpp>
+
 using namespace std;
 using namespace gtsam;
-
-using Dims = std::vector<Eigen::Index>;  // For constructing block matrices
+using namespace boost::assign;
 
 namespace {
   namespace simple {
     // Terms we'll use
-  using Terms = vector<pair<Key, Matrix> >;
-  const Terms terms{{5, I_3x3}, {10, 2 * I_3x3}, {15, 3 * I_3x3}};
+    const vector<pair<Key, Matrix> > terms = list_of<pair<Key,Matrix> >
+      (make_pair(5, Matrix3::Identity()))
+      (make_pair(10, 2*Matrix3::Identity()))
+      (make_pair(15, 3*Matrix3::Identity()));
 
-  // RHS and sigmas
-  const Vector b = Vector3(1., 2., 3.);
-  const SharedDiagonal noise =
-      noiseModel::Diagonal::Sigmas(Vector3(0.5, 0.5, 0.5));
+    // RHS and sigmas
+    const Vector b = Vector3(1., 2., 3.);
+    const SharedDiagonal noise = noiseModel::Diagonal::Sigmas(Vector3(0.5, 0.5, 0.5));
   }
 }
 
@@ -51,7 +56,8 @@ TEST(JacobianFactor, constructors_and_accessors)
   // Test for using different numbers of terms
   {
     // b vector only constructor
-    JacobianFactor expected(Terms{}, b);
+    JacobianFactor expected(
+      boost::make_iterator_range(terms.begin(), terms.begin()), b);
     JacobianFactor actual(b);
     EXPECT(assert_equal(expected, actual));
     EXPECT(assert_equal(b, expected.getb()));
@@ -61,7 +67,8 @@ TEST(JacobianFactor, constructors_and_accessors)
   }
   {
     // One term constructor
-    JacobianFactor expected(Terms{terms[0]}, b, noise);
+    JacobianFactor expected(
+      boost::make_iterator_range(terms.begin(), terms.begin() + 1), b, noise);
     JacobianFactor actual(terms[0].first, terms[0].second, b, noise);
     EXPECT(assert_equal(expected, actual));
     LONGS_EQUAL((long)terms[0].first, (long)actual.keys().back());
@@ -73,7 +80,8 @@ TEST(JacobianFactor, constructors_and_accessors)
   }
   {
     // Two term constructor
-    JacobianFactor expected(Terms{terms[0], terms[1]}, b, noise);
+    JacobianFactor expected(
+      boost::make_iterator_range(terms.begin(), terms.begin() + 2), b, noise);
     JacobianFactor actual(terms[0].first, terms[0].second,
       terms[1].first, terms[1].second, b, noise);
     EXPECT(assert_equal(expected, actual));
@@ -86,7 +94,8 @@ TEST(JacobianFactor, constructors_and_accessors)
   }
   {
     // Three term constructor
-    JacobianFactor expected(Terms{terms[0], terms[1], terms[2]}, b, noise);
+    JacobianFactor expected(
+      boost::make_iterator_range(terms.begin(), terms.begin() + 3), b, noise);
     JacobianFactor actual(terms[0].first, terms[0].second,
       terms[1].first, terms[1].second, terms[2].first, terms[2].second, b, noise);
     EXPECT(assert_equal(expected, actual));
@@ -99,7 +108,8 @@ TEST(JacobianFactor, constructors_and_accessors)
   }
   {
     // Test three-term constructor with std::map
-    JacobianFactor expected(Terms{terms[0], terms[1], terms[2]}, b, noise);
+    JacobianFactor expected(
+      boost::make_iterator_range(terms.begin(), terms.begin() + 3), b, noise);
     map<Key,Matrix> mapTerms;
     // note order of insertion plays no role: order will be determined by keys
     mapTerms.insert(terms[2]);
@@ -116,17 +126,14 @@ TEST(JacobianFactor, constructors_and_accessors)
   }
   {
     // VerticalBlockMatrix constructor
-    JacobianFactor expected(Terms{terms[0], terms[1], terms[2]}, b, noise);
-    VerticalBlockMatrix blockMatrix(Dims{3, 3, 3, 1}, 3);
+    JacobianFactor expected(
+      boost::make_iterator_range(terms.begin(), terms.begin() + 3), b, noise);
+    VerticalBlockMatrix blockMatrix(list_of(3)(3)(3)(1), 3);
     blockMatrix(0) = terms[0].second;
     blockMatrix(1) = terms[1].second;
     blockMatrix(2) = terms[2].second;
     blockMatrix(3) = b;
-    // get a vector of keys from the terms
-    vector<Key> keys;
-    for (const auto& term : terms)
-      keys.push_back(term.first);
-    JacobianFactor actual(keys, blockMatrix, noise);
+    JacobianFactor actual(terms | boost::adaptors::map_keys, blockMatrix, noise);
     EXPECT(assert_equal(expected, actual));
     LONGS_EQUAL((long)terms[2].first, (long)actual.keys().back());
     EXPECT(assert_equal(terms[2].second, actual.getA(actual.end() - 1)));
@@ -139,7 +146,7 @@ TEST(JacobianFactor, constructors_and_accessors)
 
 /* ************************************************************************* */
 TEST(JabobianFactor, Hessian_conversion) {
-  HessianFactor hessian(0, (Matrix(4, 4) <<
+  HessianFactor hessian(0, (Matrix(4,4) <<
         1.57,        2.695,         -1.1,        -2.35,
        2.695,      11.3125,        -0.65,      -10.225,
         -1.1,        -0.65,            1,          0.5,
@@ -147,33 +154,12 @@ TEST(JabobianFactor, Hessian_conversion) {
       (Vector(4) << -7.885, -28.5175, 2.75, 25.675).finished(),
       73.1725);
 
-  JacobianFactor expected(0, (Matrix(2, 4) <<
+  JacobianFactor expected(0, (Matrix(2,4) <<
       1.2530,   2.1508,   -0.8779,  -1.8755,
            0,   2.5858,    0.4789,  -2.3943).finished(),
       Vector2(-6.2929, -5.7941));
 
   EXPECT(assert_equal(expected, JacobianFactor(hessian), 1e-3));
-}
-
-/* ************************************************************************* */
-TEST(JabobianFactor, Hessian_conversion2) {
-  JacobianFactor jf(0, (Matrix(3, 3) <<
-      1, 2, 3,
-      0, 2, 3,
-      0, 0, 3).finished(),
-    Vector3(1, 2, 2));
-  HessianFactor hessian(jf);
-  EXPECT(assert_equal(jf, JacobianFactor(hessian), 1e-9));
-}
-
-/* ************************************************************************* */
-TEST(JabobianFactor, Hessian_conversion3) {
-  JacobianFactor jf(0, (Matrix(2, 4) <<
-      1, 2, 3, 0,
-      0, 3, 2, 1).finished(),
-    Vector2(1, 2));
-  HessianFactor hessian(jf);
-  EXPECT(assert_equal(jf, JacobianFactor(hessian), 1e-9));
 }
 
 /* ************************************************************************* */
@@ -184,25 +170,22 @@ Key keyX(10), keyY(8), keyZ(12);
 double sigma1 = 0.1;
 Matrix A11 = I_2x2;
 Vector2 b1(2, -1);
-auto factor1 = std::make_shared<JacobianFactor>(
-    keyX, A11, b1, noiseModel::Isotropic::Sigma(2, sigma1));
+JacobianFactor factor1(keyX, A11, b1, noiseModel::Isotropic::Sigma(2, sigma1));
 
 double sigma2 = 0.5;
 Matrix A21 = -2 * I_2x2;
 Matrix A22 = 3 * I_2x2;
 Vector2 b2(4, -5);
-auto factor2 = std::make_shared<JacobianFactor>(
-    keyX, A21, keyY, A22, b2, noiseModel::Isotropic::Sigma(2, sigma2));
+JacobianFactor factor2(keyX, A21, keyY, A22, b2, noiseModel::Isotropic::Sigma(2, sigma2));
 
 double sigma3 = 1.0;
 Matrix A32 = -4 * I_2x2;
 Matrix A33 = 5 * I_2x2;
 Vector2 b3(3, -6);
-auto factor3 = std::make_shared<JacobianFactor>(
-    keyY, A32, keyZ, A33, b3, noiseModel::Isotropic::Sigma(2, sigma3));
+JacobianFactor factor3(keyY, A32, keyZ, A33, b3, noiseModel::Isotropic::Sigma(2, sigma3));
 
-const GaussianFactorGraph factors { factor1, factor2, factor3 };
-const Ordering ordering { keyX, keyY, keyZ };
+GaussianFactorGraph factors(list_of(factor1)(factor2)(factor3));
+Ordering ordering(list_of(keyX)(keyY)(keyZ));
 }
 
 /* ************************************************************************* */
@@ -249,7 +232,7 @@ TEST(JacobianFactor, error)
 /* ************************************************************************* */
 TEST(JacobianFactor, matrices_NULL)
 {
-  // Make sure everything works with nullptr noise model
+  // Make sure everything works with NULL noise model
   JacobianFactor factor(simple::terms, simple::b);
 
   Matrix jacobianExpected(3, 9);
@@ -339,38 +322,35 @@ TEST(JacobianFactor, matrices)
 /* ************************************************************************* */
 TEST(JacobianFactor, operators )
 {
-  const double sigma = 0.1;
-  SharedDiagonal sigma0_1 = noiseModel::Isotropic::Sigma(2, sigma);
+  SharedDiagonal  sigma0_1 = noiseModel::Isotropic::Sigma(2,0.1);
 
   Matrix I = I_2x2;
   Vector b = Vector2(0.2,-0.1);
   JacobianFactor lf(1, -I, 2, I, b, sigma0_1);
 
-  VectorValues x;
-  Vector2 x1(10,20), x2(30,60);
-  x.insert(1, x1);
-  x.insert(2, x2);
+  VectorValues c;
+  c.insert(1, Vector2(10.,20.));
+  c.insert(2, Vector2(30.,60.));
 
   // test A*x
-  Vector expectedE = (x2 - x1)/sigma;
-  Vector actualE = lf * x;
+  Vector expectedE = Vector2(200.,400.);
+  Vector actualE = lf * c;
   EXPECT(assert_equal(expectedE, actualE));
 
   // test A^e
   VectorValues expectedX;
-  const double alpha = 0.5;
-  expectedX.insert(1, - alpha * expectedE /sigma);
-  expectedX.insert(2,   alpha * expectedE /sigma);
+  expectedX.insert(1, Vector2(-2000.,-4000.));
+  expectedX.insert(2, Vector2(2000., 4000.));
   VectorValues actualX = VectorValues::Zero(expectedX);
-  lf.transposeMultiplyAdd(alpha, actualE, actualX);
+  lf.transposeMultiplyAdd(1.0, actualE, actualX);
   EXPECT(assert_equal(expectedX, actualX));
 
   // test gradient at zero
-  const auto [A, b2] = lf.jacobian();
+  Matrix A; Vector b2; boost::tie(A,b2) = lf.jacobian();
   VectorValues expectedG;
   expectedG.insert(1, Vector2(20,-10));
   expectedG.insert(2, Vector2(-20, 10));
-  KeyVector keys {1, 2};
+  FastVector<Key> keys; keys += 1,2;
   EXPECT(assert_equal(-A.transpose()*b2, expectedG.vector(keys)));
   VectorValues actualG = lf.gradientAtZero();
   EXPECT(assert_equal(expectedG, actualG));
@@ -432,12 +412,12 @@ TEST(JacobianFactor, eliminate)
   Vector9 sigmas; sigmas << s1, s0, s2;
 
   JacobianFactor combinedFactor(0, A0, 1, A1, b, noiseModel::Diagonal::Sigmas(sigmas, true));
-  GaussianFactorGraph::EliminationResult expected = combinedFactor.eliminate(Ordering{0});
-  JacobianFactor::shared_ptr expectedJacobian = std::dynamic_pointer_cast<
+  GaussianFactorGraph::EliminationResult expected = combinedFactor.eliminate(list_of(0));
+  JacobianFactor::shared_ptr expectedJacobian = boost::dynamic_pointer_cast<
     JacobianFactor>(expected.second);
 
-  GaussianFactorGraph::EliminationResult actual = EliminateQR(gfg, Ordering{0});
-  JacobianFactor::shared_ptr actualJacobian = std::dynamic_pointer_cast<
+  GaussianFactorGraph::EliminationResult actual = EliminateQR(gfg, list_of(0));
+  JacobianFactor::shared_ptr actualJacobian = boost::dynamic_pointer_cast<
     JacobianFactor>(actual.second);
 
   EXPECT(assert_equal(*expected.first, *actual.first));
@@ -483,7 +463,7 @@ TEST(JacobianFactor, eliminate2 )
 
   // eliminate the combined factor
   pair<GaussianConditional::shared_ptr, JacobianFactor::shared_ptr>
-    actual = combined.eliminate(Ordering{2});
+    actual = combined.eliminate(Ordering(list_of(2)));
 
   // create expected Conditional Gaussian
   double oldSigma = 0.0894427; // from when R was made unit
@@ -535,11 +515,11 @@ TEST(JacobianFactor, EliminateQR)
   // Create factor graph
   const SharedDiagonal sig_4D = noiseModel::Isotropic::Sigma(4, 0.5);
   const SharedDiagonal sig_2D = noiseModel::Isotropic::Sigma(2, 0.5);
-  GaussianFactorGraph factors = {
-    std::make_shared<JacobianFactor>(KeyVector{3, 5, 7, 9, 11}, VerticalBlockMatrix(Dims{2, 2, 2, 2, 2, 1}, Ab.block(0, 0, 4, 11)), sig_4D),
-    std::make_shared<JacobianFactor>(KeyVector{5, 7, 9, 11}, VerticalBlockMatrix(Dims{2, 2, 2, 2, 1}, Ab.block(4, 2, 4, 9)), sig_4D),
-    std::make_shared<JacobianFactor>(KeyVector{7, 9, 11}, VerticalBlockMatrix(Dims{2, 2, 2, 1}, Ab.block(8, 4, 4, 7)), sig_4D),
-    std::make_shared<JacobianFactor>(KeyVector{11}, VerticalBlockMatrix(Dims{2, 1}, Ab.block(12, 8, 2, 3)), sig_2D)};
+  GaussianFactorGraph factors = list_of
+    (JacobianFactor(list_of(3)(5)(7)(9)(11), VerticalBlockMatrix(list_of(2)(2)(2)(2)(2)(1), Ab.block(0, 0, 4, 11)), sig_4D))
+    (JacobianFactor(list_of(5)(7)(9)(11), VerticalBlockMatrix(list_of(2)(2)(2)(2)(1), Ab.block(4, 2, 4, 9)), sig_4D))
+    (JacobianFactor(list_of(7)(9)(11), VerticalBlockMatrix(list_of(2)(2)(2)(1), Ab.block(8, 4, 4, 7)), sig_4D))
+    (JacobianFactor(list_of(11), VerticalBlockMatrix(list_of(2)(1), Ab.block(12, 8, 2, 3)), sig_2D));
 
   // extract the dense matrix for the graph
   Matrix actualDense = factors.augmentedJacobian();
@@ -558,12 +538,12 @@ TEST(JacobianFactor, EliminateQR)
     0.,       0.,       0.,       0.,       0.,       0.,       0.,       0.,   8.2503,   3.3757,   6.8476,
     0.,       0.,       0.,       0.,       0.,       0.,       0.,       0.,       0.,  -5.7095,  -0.0090).finished();
 
-  GaussianConditional expectedFragment(KeyVector{3,5,7,9,11}, 3,
-                                       VerticalBlockMatrix(Dims{2, 2, 2, 2, 2, 1}, R.topRows(6)),
+  GaussianConditional expectedFragment(list_of(3)(5)(7)(9)(11), 3,
+                                       VerticalBlockMatrix(list_of(2)(2)(2)(2)(2)(1), R.topRows(6)),
                                        noiseModel::Unit::Create(6));
 
   // Eliminate (3 frontal variables, 6 scalar columns) using QR !!!!
-  GaussianFactorGraph::EliminationResult actual = EliminateQR(factors, Ordering{3, 5, 7});
+  GaussianFactorGraph::EliminationResult actual = EliminateQR(factors, list_of(3)(5)(7));
   const JacobianFactor &actualJF = dynamic_cast<const JacobianFactor&>(*actual.second);
 
   EXPECT(assert_equal(expectedFragment, *actual.first, 0.001));
@@ -585,7 +565,7 @@ TEST ( JacobianFactor, constraint_eliminate1 )
 
   // eliminate it
   pair<GaussianConditional::shared_ptr, JacobianFactor::shared_ptr>
-    actual = lc.eliminate(Ordering{1});
+    actual = lc.eliminate(list_of(1));
 
   // verify linear factor is a null ptr
   EXPECT(actual.second->empty());
@@ -613,7 +593,7 @@ TEST ( JacobianFactor, constraint_eliminate2 )
 
   // eliminate x and verify results
   pair<GaussianConditional::shared_ptr, JacobianFactor::shared_ptr>
-    actual = lc.eliminate(Ordering{1});
+    actual = lc.eliminate(list_of(1));
 
   // LF should be empty
   // It's tricky to create Eigen matrices that are only zero along one dimension
@@ -644,7 +624,7 @@ TEST(JacobianFactor, OverdeterminedEliminate) {
   SharedDiagonal diagonal = noiseModel::Diagonal::Sigmas(sigmas);
 
   JacobianFactor factor(0, Ab.leftCols(3), Ab.col(3), diagonal);
-  GaussianFactorGraph::EliminationResult actual = factor.eliminate(Ordering{0});
+  GaussianFactorGraph::EliminationResult actual = factor.eliminate(list_of(0));
 
   Matrix expectedRd(3, 4);
   expectedRd << -2.64575131, -2.64575131, -2.64575131, -2.64575131,  //

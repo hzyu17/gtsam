@@ -2,9 +2,9 @@
  * \file Ellipsoid.hpp
  * \brief Header for GeographicLib::Ellipsoid class
  *
- * Copyright (c) Charles Karney (2012-2017) <charles@karney.com> and licensed
- * under the MIT/X11 License.  For more information, see
- * https://geographiclib.sourceforge.io/
+ * Copyright (c) Charles Karney (2012) <charles@karney.com> and licensed under
+ * the MIT/X11 License.  For more information, see
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 
 #if !defined(GEOGRAPHICLIB_ELLIPSOID_HPP)
@@ -40,18 +40,21 @@ namespace GeographicLib {
   private:
     typedef Math::real real;
     static const int numit_ = 10;
-    real stol_;
-    real _a, _f, _f1, _f12, _e2, _es, _e12, _n, _b;
+    static const real stol_;
+    real _a, _f, _f1, _f12, _e2, _e12, _n, _b;
     TransverseMercator _tm;
     EllipticFunction _ell;
     AlbersEqualArea _au;
+    static real tand(real x) throw() {
+      return
+        std::abs(x) == real(90) ? (x < 0 ?
+                                   - TransverseMercator::overflow_
+                                   : TransverseMercator::overflow_) :
+        std::tan(x * Math::degree<real>());
+    }
+    static real atand(real x) throw()
+    { return std::atan(x) / Math::degree<real>(); }
 
-    // These are the alpha and beta coefficients in the Krueger series from
-    // TransverseMercator.  Thy are used by RhumbSolve to compute
-    // (psi2-psi1)/(mu2-mu1).
-    const Math::real* ConformalToRectifyingCoeffs() const { return _tm._alp; }
-    const Math::real* RectifyingToConformalCoeffs() const { return _tm._bet; }
-    friend class Rhumb; friend class RhumbLine;
   public:
     /** \name Constructor
      **********************************************************************/
@@ -62,8 +65,9 @@ namespace GeographicLib {
      *
      * @param[in] a equatorial radius (meters).
      * @param[in] f flattening of ellipsoid.  Setting \e f = 0 gives a sphere.
-     *   Negative \e f gives a prolate ellipsoid.
-     * @exception GeographicErr if \e a or (1 &minus; \e f) \e a is not
+     *   Negative \e f gives a prolate ellipsoid.  If \e f > 1, set flattening
+     *   to 1/\e f.
+     * @exception GeographicErr if \e a or (1 &minus; \e f ) \e a is not
      *   positive.
      **********************************************************************/
     Ellipsoid(real a, real f);
@@ -77,34 +81,34 @@ namespace GeographicLib {
      * @return \e a the equatorial radius of the ellipsoid (meters).  This is
      *   the value used in the constructor.
      **********************************************************************/
-    Math::real MajorRadius() const { return _a; }
+    Math::real MajorRadius() const throw() { return _a; }
 
     /**
      * @return \e b the polar semi-axis (meters).
      **********************************************************************/
-    Math::real MinorRadius() const { return _b; }
+    Math::real MinorRadius() const throw() { return _b; }
 
     /**
      * @return \e L the distance between the equator and a pole along a
      *   meridian (meters).  For a sphere \e L = (&pi;/2) \e a.  The radius
      *   of a sphere with the same meridian length is \e L / (&pi;/2).
      **********************************************************************/
-    Math::real QuarterMeridian() const;
+    Math::real QuarterMeridian() const throw();
 
     /**
      * @return \e A the total area of the ellipsoid (meters<sup>2</sup>).  For
      *   a sphere \e A = 4&pi; <i>a</i><sup>2</sup>.  The radius of a sphere
      *   with the same area is sqrt(\e A / (4&pi;)).
      **********************************************************************/
-    Math::real Area() const;
+    Math::real Area() const throw();
 
     /**
      * @return \e V the total volume of the ellipsoid (meters<sup>3</sup>).
      *   For a sphere \e V = (4&pi; / 3) <i>a</i><sup>3</sup>.  The radius of
      *   a sphere with the same volume is cbrt(\e V / (4&pi;/3)).
      **********************************************************************/
-    Math::real Volume() const
-    { return (4 * Math::pi()) * Math::sq(_a) * _b / 3; }
+    Math::real Volume() const throw()
+    { return (4 * Math::pi<real>()) * Math::sq(_a) * _b / 3; }
     ///@}
 
     /** \name %Ellipsoid shape
@@ -117,21 +121,21 @@ namespace GeographicLib {
      *   positive, or negative for a sphere, oblate ellipsoid, or prolate
      *   ellipsoid.
      **********************************************************************/
-    Math::real Flattening() const { return _f; }
+    Math::real Flattening() const throw() { return _f; }
 
     /**
      * @return \e f ' = (\e a &minus; \e b) / \e b, the second flattening of
      *   the ellipsoid.  This is zero, positive, or negative for a sphere,
      *   oblate ellipsoid, or prolate ellipsoid.
      **********************************************************************/
-    Math::real SecondFlattening() const { return _f / (1 - _f); }
+    Math::real SecondFlattening() const throw() { return _f / (1 - _f); }
 
     /**
      * @return \e n = (\e a &minus; \e b) / (\e a + \e b), the third flattening
      *   of the ellipsoid.  This is zero, positive, or negative for a sphere,
      *   oblate ellipsoid, or prolate ellipsoid.
      **********************************************************************/
-    Math::real ThirdFlattening() const { return _n; }
+    Math::real ThirdFlattening() const throw() { return _n; }
 
     /**
      * @return <i>e</i><sup>2</sup> = (<i>a</i><sup>2</sup> &minus;
@@ -139,7 +143,7 @@ namespace GeographicLib {
      *   of the ellipsoid.  This is zero, positive, or negative for a sphere,
      *   oblate ellipsoid, or prolate ellipsoid.
      **********************************************************************/
-    Math::real EccentricitySq() const { return _e2; }
+    Math::real EccentricitySq() const throw() { return _e2; }
 
     /**
      * @return <i>e'</i> <sup>2</sup> = (<i>a</i><sup>2</sup> &minus;
@@ -147,7 +151,7 @@ namespace GeographicLib {
      *   squared of the ellipsoid.  This is zero, positive, or negative for a
      *   sphere, oblate ellipsoid, or prolate ellipsoid.
      **********************************************************************/
-    Math::real SecondEccentricitySq() const { return _e12; }
+    Math::real SecondEccentricitySq() const throw() { return _e12; }
 
     /**
      * @return <i>e''</i> <sup>2</sup> = (<i>a</i><sup>2</sup> &minus;
@@ -156,7 +160,7 @@ namespace GeographicLib {
      *   positive, or negative for a sphere, oblate ellipsoid, or prolate
      *   ellipsoid.
      **********************************************************************/
-    Math::real ThirdEccentricitySq() const { return _e2 / (2 - _e2); }
+    Math::real ThirdEccentricitySq() const throw() { return _e2 / (2 - _e2); }
     ///@}
 
     /** \name Latitude conversion.
@@ -183,7 +187,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &beta; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real ParametricLatitude(real phi) const;
+    Math::real ParametricLatitude(real phi) const throw();
 
     /**
      * @param[in] beta the parametric latitude (degrees).
@@ -193,7 +197,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &phi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real InverseParametricLatitude(real beta) const;
+    Math::real InverseParametricLatitude(real beta) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -207,7 +211,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &theta; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real GeocentricLatitude(real phi) const;
+    Math::real GeocentricLatitude(real phi) const throw();
 
     /**
      * @param[in] theta the geocentric latitude (degrees).
@@ -217,7 +221,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &phi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real InverseGeocentricLatitude(real theta) const;
+    Math::real InverseGeocentricLatitude(real theta) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -233,7 +237,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &mu; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real RectifyingLatitude(real phi) const;
+    Math::real RectifyingLatitude(real phi) const throw();
 
     /**
      * @param[in] mu the rectifying latitude (degrees).
@@ -243,7 +247,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &phi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real InverseRectifyingLatitude(real mu) const;
+    Math::real InverseRectifyingLatitude(real mu) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -259,7 +263,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &xi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real AuthalicLatitude(real phi) const;
+    Math::real AuthalicLatitude(real phi) const throw();
 
     /**
      * @param[in] xi the authalic latitude (degrees).
@@ -269,7 +273,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &phi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real InverseAuthalicLatitude(real xi) const;
+    Math::real InverseAuthalicLatitude(real xi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -284,7 +288,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &chi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real ConformalLatitude(real phi) const;
+    Math::real ConformalLatitude(real phi) const throw();
 
     /**
      * @param[in] chi the conformal latitude (degrees).
@@ -294,7 +298,7 @@ namespace GeographicLib {
      * result is undefined if this condition does not hold.  The returned value
      * &phi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real InverseConformalLatitude(real chi) const;
+    Math::real InverseConformalLatitude(real chi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -306,21 +310,18 @@ namespace GeographicLib {
      * defines the Mercator projection.  For a sphere &psi; =
      * sinh<sup>&minus;1</sup> tan &phi;.
      *
-     * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the result is
-     * undefined if this condition does not hold.  The value returned for &phi;
-     * = &plusmn;90&deg; is some (positive or negative) large but finite value,
-     * such that InverseIsometricLatitude returns the original value of &phi;.
+     * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the
+     * result is undefined if this condition does not hold.
      **********************************************************************/
-    Math::real IsometricLatitude(real phi) const;
+    Math::real IsometricLatitude(real phi) const throw();
 
     /**
      * @param[in] psi the isometric latitude (degrees).
      * @return &phi; the geographic latitude (degrees).
      *
-     * The returned value &phi; lies in [&minus;90&deg;, 90&deg;].  For a
-     * sphere &phi; = tan<sup>&minus;1</sup> sinh &psi;.
+     * The returned value &phi; lies in [&minus;90&deg;, 90&deg;].
      **********************************************************************/
-    Math::real InverseIsometricLatitude(real psi) const;
+    Math::real InverseIsometricLatitude(real psi) const throw();
     ///@}
 
     /** \name Other quantities.
@@ -336,7 +337,7 @@ namespace GeographicLib {
      * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the
      * result is undefined if this condition does not hold.
      **********************************************************************/
-    Math::real CircleRadius(real phi) const;
+    Math::real CircleRadius(real phi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -347,7 +348,7 @@ namespace GeographicLib {
      * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the
      * result is undefined if this condition does not hold.
      **********************************************************************/
-    Math::real CircleHeight(real phi) const;
+    Math::real CircleHeight(real phi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -359,7 +360,7 @@ namespace GeographicLib {
      * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the
      * result is undefined if this condition does not hold.
      **********************************************************************/
-    Math::real MeridianDistance(real phi) const;
+    Math::real MeridianDistance(real phi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -372,7 +373,7 @@ namespace GeographicLib {
      * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the
      * result is undefined if this condition does not hold.
      **********************************************************************/
-    Math::real MeridionalCurvatureRadius(real phi) const;
+    Math::real MeridionalCurvatureRadius(real phi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -385,7 +386,7 @@ namespace GeographicLib {
      * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the
      * result is undefined if this condition does not hold.
      **********************************************************************/
-    Math::real TransverseCurvatureRadius(real phi) const;
+    Math::real TransverseCurvatureRadius(real phi) const throw();
 
     /**
      * @param[in] phi the geographic latitude (degrees).
@@ -395,10 +396,11 @@ namespace GeographicLib {
      *   section at latitude &phi; inclined at an angle \e azi to the
      *   meridian (meters).
      *
-     * &phi; must lie in the range [&minus;90&deg;, 90&deg;]; the result is
-     * undefined this condition does not hold.
+     * &phi; must lie in the range [&minus;90&deg;, 90&deg;] and \e
+     * azi must lie in the range [&minus;540&deg;, 540&deg;); the
+     * result is undefined if either of conditions does not hold.
      **********************************************************************/
-    Math::real NormalCurvatureRadius(real phi, real azi) const;
+    Math::real NormalCurvatureRadius(real phi, real azi) const throw();
     ///@}
 
     /** \name Eccentricity conversions.
@@ -413,7 +415,7 @@ namespace GeographicLib {
      * \e f ' should lie in (&minus;1, &infin;).
      * The returned value \e f lies in (&minus;&infin;, 1).
      **********************************************************************/
-    static Math::real SecondFlatteningToFlattening(real fp)
+    static Math::real SecondFlatteningToFlattening(real fp) throw()
     { return fp / (1 + fp); }
 
     /**
@@ -423,7 +425,7 @@ namespace GeographicLib {
      * \e f should lie in (&minus;&infin;, 1).
      * The returned value \e f ' lies in (&minus;1, &infin;).
      **********************************************************************/
-    static Math::real FlatteningToSecondFlattening(real f)
+    static Math::real FlatteningToSecondFlattening(real f) throw()
     { return f / (1 - f); }
 
     /**
@@ -434,7 +436,7 @@ namespace GeographicLib {
      * \e n should lie in (&minus;1, 1).
      * The returned value \e f lies in (&minus;&infin;, 1).
      **********************************************************************/
-    static Math::real ThirdFlatteningToFlattening(real n)
+    static Math::real ThirdFlatteningToFlattening(real n) throw()
     { return 2 * n / (1 + n); }
 
     /**
@@ -445,7 +447,7 @@ namespace GeographicLib {
      * \e f should lie in (&minus;&infin;, 1).
      * The returned value \e n lies in (&minus;1, 1).
      **********************************************************************/
-    static Math::real FlatteningToThirdFlattening(real f)
+    static Math::real FlatteningToThirdFlattening(real f) throw()
     { return f / (2 - f); }
 
     /**
@@ -457,8 +459,8 @@ namespace GeographicLib {
      * <i>e</i><sup>2</sup> should lie in (&minus;&infin;, 1).
      * The returned value \e f lies in (&minus;&infin;, 1).
      **********************************************************************/
-    static Math::real EccentricitySqToFlattening(real e2)
-    { using std::sqrt; return e2 / (sqrt(1 - e2) + 1); }
+    static Math::real EccentricitySqToFlattening(real e2) throw()
+    { return e2 / (std::sqrt(1 - e2) + 1); }
 
     /**
      * @param[in] f = (\e a &minus; \e b) / \e a, the flattening.
@@ -469,7 +471,7 @@ namespace GeographicLib {
      * \e f should lie in (&minus;&infin;, 1).
      * The returned value <i>e</i><sup>2</sup> lies in (&minus;&infin;, 1).
      **********************************************************************/
-    static Math::real FlatteningToEccentricitySq(real f)
+    static Math::real FlatteningToEccentricitySq(real f) throw()
     { return f * (2 - f); }
 
     /**
@@ -481,8 +483,8 @@ namespace GeographicLib {
      * <i>e'</i> <sup>2</sup> should lie in (&minus;1, &infin;).
      * The returned value \e f lies in (&minus;&infin;, 1).
      **********************************************************************/
-    static Math::real SecondEccentricitySqToFlattening(real ep2)
-    { using std::sqrt; return ep2 / (sqrt(1 + ep2) + 1 + ep2); }
+    static Math::real SecondEccentricitySqToFlattening(real ep2) throw()
+    { return ep2 / (std::sqrt(1 + ep2) + 1 + ep2); }
 
     /**
      * @param[in] f = (\e a &minus; \e b) / \e a, the flattening.
@@ -493,7 +495,7 @@ namespace GeographicLib {
      * \e f should lie in (&minus;&infin;, 1).
      * The returned value <i>e'</i> <sup>2</sup> lies in (&minus;1, &infin;).
      **********************************************************************/
-    static Math::real FlatteningToSecondEccentricitySq(real f)
+    static Math::real FlatteningToSecondEccentricitySq(real f) throw()
     { return f * (2 - f) / Math::sq(1 - f); }
 
     /**
@@ -505,10 +507,8 @@ namespace GeographicLib {
      * <i>e''</i> <sup>2</sup> should lie in (&minus;1, 1).
      * The returned value \e f lies in (&minus;&infin;, 1).
      **********************************************************************/
-    static Math::real ThirdEccentricitySqToFlattening(real epp2) {
-      using std::sqrt;
-      return 2 * epp2 / (sqrt((1 - epp2) * (1 + epp2)) + 1 + epp2);
-    }
+    static Math::real ThirdEccentricitySqToFlattening(real epp2) throw()
+    { return 2 * epp2 / (sqrt((1 - epp2) * (1 + epp2)) + 1 + epp2); }
 
     /**
      * @param[in] f = (\e a &minus; \e b) / \e a, the flattening.
@@ -519,7 +519,7 @@ namespace GeographicLib {
      * \e f should lie in (&minus;&infin;, 1).
      * The returned value <i>e''</i> <sup>2</sup> lies in (&minus;1, 1).
      **********************************************************************/
-    static Math::real FlatteningToThirdEccentricitySq(real f)
+    static Math::real FlatteningToThirdEccentricitySq(real f) throw()
     { return f * (2 - f) / (1 + Math::sq(1 - f)); }
 
     ///@}
@@ -528,7 +528,8 @@ namespace GeographicLib {
      * A global instantiation of Ellipsoid with the parameters for the WGS84
      * ellipsoid.
      **********************************************************************/
-    static const Ellipsoid& WGS84();
+    static const Ellipsoid WGS84;
+
   };
 
 } // namespace GeographicLib

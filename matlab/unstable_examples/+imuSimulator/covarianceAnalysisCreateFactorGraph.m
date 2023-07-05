@@ -14,7 +14,7 @@ graph = NonlinearFactorGraph;
 for i=0:length(measurements)
   % Get the current pose
   currentPoseKey = symbol('x', i);
-  currentPose = values.atPose3(currentPoseKey);
+  currentPose = values.at(currentPoseKey);
   
   if i==0
     %% first time step, add priors
@@ -26,11 +26,11 @@ for i=0:length(measurements)
     % IMU velocity and bias priors
     if options.includeIMUFactors == 1
       currentVelKey = symbol('v', 0);
-      currentVel = values.atPoint3(currentVelKey);
-      graph.add(PriorFactorVector(currentVelKey, currentVel, noiseModels.noiseVel));
+      currentVel = values.at(currentVelKey).vector;
+      graph.add(PriorFactorLieVector(currentVelKey, LieVector(currentVel), noiseModels.noiseVel));
       
       currentBiasKey = symbol('b', 0);
-      currentBias = values.atPoint3(currentBiasKey);
+      currentBias = values.at(currentBiasKey);
       graph.add(PriorFactorConstantBias(currentBiasKey, currentBias, noiseModels.noisePriorBias));
     end
     
@@ -155,7 +155,7 @@ for i=0:length(measurements)
     if options.includeCameraFactors == 1        
       for j = 1:length(measurements(i).landmarks)
         cameraMeasurmentNoise = measurementNoise.cameraNoiseVector .* randn(2,1);
-        cameraPixelMeasurement = measurements(i).landmarks(j);
+        cameraPixelMeasurement = measurements(i).landmarks(j).vector;
         % Only add the measurement if it is in the image frame (based on calibration)
         if(cameraPixelMeasurement(1) > 0 && cameraPixelMeasurement(2) > 0 ...
              && cameraPixelMeasurement(1) < 2*metadata.camera.calibration.px ...

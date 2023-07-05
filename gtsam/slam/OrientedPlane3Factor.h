@@ -15,52 +15,55 @@ namespace gtsam {
 /**
  * Factor to measure a planar landmark from a given pose
  */
-class GTSAM_EXPORT OrientedPlane3Factor: public NoiseModelFactorN<Pose3, OrientedPlane3> {
- protected:
+class OrientedPlane3Factor: public NoiseModelFactor2<Pose3, OrientedPlane3> {
+
+protected:
+  Key poseKey_;
+  Key landmarkKey_;
+  Vector measured_coeffs_;
   OrientedPlane3 measured_p_;
-  typedef NoiseModelFactorN<Pose3, OrientedPlane3> Base;
 
- public:
+  typedef NoiseModelFactor2<Pose3, OrientedPlane3> Base;
 
-  // Provide access to the Matrix& version of evaluateError:
-  using NoiseModelFactor2<Pose3, OrientedPlane3>::evaluateError;
+public:
 
   /// Constructor
   OrientedPlane3Factor() {
   }
-  ~OrientedPlane3Factor() override {}
+  virtual ~OrientedPlane3Factor() {}
 
-  /** Constructor with measured plane (a,b,c,d) coefficients
-   * @param z measured plane (a,b,c,d) coefficients as 4D vector
-   * @param noiseModel noiseModel Gaussian noise model
-   * @param poseKey Key or symbol for unknown pose
-   * @param landmarkKey Key or symbol for unknown planar landmark
-   * @return the transformed plane
-   */
-  OrientedPlane3Factor(const Vector4& z, const SharedGaussian& noiseModel,
-                       Key poseKey, Key landmarkKey)
-      : Base(noiseModel, poseKey, landmarkKey), measured_p_(z) {}
+  /// Constructor with measured plane coefficients (a,b,c,d), noise model, pose symbol
+  OrientedPlane3Factor(const Vector&z, const SharedGaussian& noiseModel,
+      const Key& pose, const Key& landmark) :
+      Base(noiseModel, pose, landmark), poseKey_(pose), landmarkKey_(landmark), measured_coeffs_(
+          z) {
+    measured_p_ = OrientedPlane3(Unit3(z(0), z(1), z(2)), z(3));
+  }
 
   /// print
-  void print(const std::string& s = "OrientedPlane3Factor",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s = "OrientedPlane3Factor",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /// evaluateError
-  Vector evaluateError(
-      const Pose3& pose, const OrientedPlane3& plane,
-      OptionalMatrixType H1, OptionalMatrixType H2) const override;
+  virtual Vector evaluateError(const Pose3& pose, const OrientedPlane3& plane,
+      boost::optional<Matrix&> H1 = boost::none, boost::optional<Matrix&> H2 =
+          boost::none) const {
+    OrientedPlane3 predicted_plane = OrientedPlane3::Transform(plane, pose, H1,
+        H2);
+    Vector err(3);
+    err << predicted_plane.error(measured_p_);
+    return (err);
+  }
+  ;
 };
 
 // TODO: Convert this factor to dimension two, three dimensions is redundant for direction prior
-class GTSAM_EXPORT OrientedPlane3DirectionPrior : public NoiseModelFactorN<OrientedPlane3> {
- protected:
-  OrientedPlane3 measured_p_;  /// measured plane parameters
-  typedef NoiseModelFactorN<OrientedPlane3> Base;
-
- public:
-
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
+class OrientedPlane3DirectionPrior: public NoiseModelFactor1<OrientedPlane3> {
+protected:
+  OrientedPlane3 measured_p_; /// measured plane parameters
+  Key landmarkKey_;
+  typedef NoiseModelFactor1<OrientedPlane3> Base;
+public:
 
   typedef OrientedPlane3DirectionPrior This;
   /// Constructor
@@ -68,18 +71,21 @@ class GTSAM_EXPORT OrientedPlane3DirectionPrior : public NoiseModelFactorN<Orien
   }
 
   /// Constructor with measured plane coefficients (a,b,c,d), noise model, landmark symbol
-  OrientedPlane3DirectionPrior(Key key, const Vector4& z,
-                               const SharedGaussian& noiseModel)
-      : Base(noiseModel, key), measured_p_(z) {}
+  OrientedPlane3DirectionPrior(Key key, const Vector&z,
+      const SharedGaussian& noiseModel) :
+      Base(noiseModel, key), landmarkKey_(key) {
+    measured_p_ = OrientedPlane3(Unit3(z(0), z(1), z(2)), z(3));
+  }
 
   /// print
-  void print(const std::string& s = "OrientedPlane3DirectionPrior",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s = "OrientedPlane3DirectionPrior",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /// equals
-  bool equals(const NonlinearFactor& expected, double tol = 1e-9) const override;
+  virtual bool equals(const NonlinearFactor& expected, double tol = 1e-9) const;
 
-  Vector evaluateError(const OrientedPlane3& plane, OptionalMatrixType H) const override;
+  virtual Vector evaluateError(const OrientedPlane3& plane,
+      boost::optional<Matrix&> H = boost::none) const;
 };
 
 } // gtsam

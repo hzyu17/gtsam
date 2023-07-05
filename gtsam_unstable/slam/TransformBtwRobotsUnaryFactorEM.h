@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -31,7 +31,7 @@ namespace gtsam {
   /**
    * A class for a measurement predicted by "between(config[key1],config[key2])"
    * @tparam VALUE the Value type
-   * @ingroup slam
+   * @addtogroup SLAM
    */
   template<class VALUE>
   class TransformBtwRobotsUnaryFactorEM: public NonlinearFactor {
@@ -43,16 +43,16 @@ namespace gtsam {
   private:
 
     typedef TransformBtwRobotsUnaryFactorEM<VALUE> This;
-    typedef NonlinearFactor Base;
+    typedef gtsam::NonlinearFactor Base;
 
-    Key key_;
+    gtsam::Key key_;
 
     VALUE measured_; /** The measurement */
 
-    Values valA_; // given values for robot A map\trajectory
-    Values valB_; // given values for robot B map\trajectory
-    Key keyA_;    // key of robot A to which the measurement refers
-    Key keyB_;    // key of robot B to which the measurement refers
+    gtsam::Values valA_; // given values for robot A map\trajectory
+    gtsam::Values valB_; // given values for robot B map\trajectory
+    gtsam::Key keyA_;    // key of robot A to which the measurement refers
+    gtsam::Key keyB_;    // key of robot B to which the measurement refers
 
     // TODO: create function to update valA_ and valB_
 
@@ -72,19 +72,19 @@ namespace gtsam {
   public:
 
     // shorthand for a smart pointer to a factor
-    typedef typename std::shared_ptr<TransformBtwRobotsUnaryFactorEM> shared_ptr;
+    typedef typename boost::shared_ptr<TransformBtwRobotsUnaryFactorEM> shared_ptr;
 
     /** default constructor - only use for serialization */
     TransformBtwRobotsUnaryFactorEM() {}
 
     /** Constructor */
     TransformBtwRobotsUnaryFactorEM(Key key, const VALUE& measured, Key keyA, Key keyB,
-        const Values& valA, const Values& valB,
+        const gtsam::Values& valA, const gtsam::Values& valB,
         const SharedGaussian& model_inlier, const SharedGaussian& model_outlier,
         const double prior_inlier, const double prior_outlier,
         const bool flag_bump_up_near_zero_probs = false,
         const bool start_with_M_step = false) :
-          Base(KeyVector{key}), key_(key), measured_(measured), keyA_(keyA), keyB_(keyB),
+          Base(cref_list_of<1>(key)), key_(key), measured_(measured), keyA_(keyA), keyB_(keyB),
           model_inlier_(model_inlier), model_outlier_(model_outlier),
           prior_inlier_(prior_inlier), prior_outlier_(prior_outlier), flag_bump_up_near_zero_probs_(flag_bump_up_near_zero_probs),
           start_with_M_step_(false){
@@ -93,17 +93,17 @@ namespace gtsam {
 
     }
 
-    ~TransformBtwRobotsUnaryFactorEM() override {}
+    virtual ~TransformBtwRobotsUnaryFactorEM() {}
 
 
     /** Clone */
-    NonlinearFactor::shared_ptr clone() const override { return std::make_shared<This>(*this); }
+    virtual gtsam::NonlinearFactor::shared_ptr clone() const { return boost::make_shared<This>(*this); }
 
 
     /** implement functions needed for Testable */
 
     /** print */
-    void print(const std::string& s, const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
+    virtual void print(const std::string& s, const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
       std::cout << s << "TransformBtwRobotsUnaryFactorEM("
           << keyFormatter(key_) << ")\n";
       std::cout << "MR between factor keys: "
@@ -119,7 +119,7 @@ namespace gtsam {
     }
 
     /** equals */
-    bool equals(const NonlinearFactor& f, double tol=1e-9) const override {
+    virtual bool equals(const NonlinearFactor& f, double tol=1e-9) const {
       const This *t =  dynamic_cast<const This*> (&f);
 
       if(t && Base::equals(f))
@@ -134,7 +134,7 @@ namespace gtsam {
     /** implement functions needed to derive from Factor */
 
     /* ************************************************************************* */
-    void setValAValB(const Values& valA, const Values& valB){
+    void setValAValB(const gtsam::Values& valA, const gtsam::Values& valB){
       if ( (!valA.exists(keyA_)) && (!valB.exists(keyA_)) && (!valA.exists(keyB_)) && (!valB.exists(keyB_)) )
         throw("something is wrong!");
 
@@ -151,38 +151,36 @@ namespace gtsam {
     }
 
     /* ************************************************************************* */
-    double error(const Values& x) const override {
+    virtual double error(const gtsam::Values& x) const {
       return whitenedError(x).squaredNorm();
     }
 
     /* ************************************************************************* */
     /**
-     * Linearize a non-linearFactorN to get a GaussianFactor,
+     * Linearize a non-linearFactorN to get a gtsam::GaussianFactor,
      * \f$ Ax-b \approx h(x+\delta x)-z = h(x) + A \delta x - z \f$
      * Hence \f$ b = z - h(x) = - \mathtt{error\_vector}(x) \f$
      */
     /* This version of linearize recalculates the noise model each time */
-    std::shared_ptr<GaussianFactor> linearize(const Values& x) const override {
+    virtual boost::shared_ptr<gtsam::GaussianFactor> linearize(const gtsam::Values& x) const {
       // Only linearize if the factor is active
       if (!this->active(x))
-        return std::shared_ptr<JacobianFactor>();
+        return boost::shared_ptr<gtsam::JacobianFactor>();
 
       //std::cout<<"About to linearize"<<std::endl;
-      Matrix A1;
-      std::vector<Matrix> A(this->size());
-      Vector b = -whitenedError(x, A);
+      gtsam::Matrix A1;
+      std::vector<gtsam::Matrix> A(this->size());
+      gtsam::Vector b = -whitenedError(x, A);
       A1 = A[0];
 
-      return GaussianFactor::shared_ptr(
-          new JacobianFactor(key_, A1, b, noiseModel::Unit::Create(b.size())));
+      return gtsam::GaussianFactor::shared_ptr(
+          new gtsam::JacobianFactor(key_, A1, b, gtsam::noiseModel::Unit::Create(b.size())));
     }
 
 
     /* ************************************************************************* */
-    /** A function overload to accept a vector<matrix> instead of a pointer to
-     * the said type.
-     */
-    Vector whitenedError(const Values& x, OptionalMatrixVecType H = nullptr) const {
+    gtsam::Vector whitenedError(const gtsam::Values& x,
+        boost::optional<std::vector<gtsam::Matrix>&> H = boost::none) const {
 
       bool debug = true;
 
@@ -229,7 +227,7 @@ namespace gtsam {
 
         Matrix H_inlier  = sqrt(p_inlier)*model_inlier_->Whiten(H_unwh);
         Matrix H_outlier = sqrt(p_outlier)*model_outlier_->Whiten(H_unwh);
-        Matrix H_aug = stack(2, &H_inlier, &H_outlier);
+        Matrix H_aug = gtsam::stack(2, &H_inlier, &H_outlier);
 
         (*H)[0].resize(H_aug.rows(),H_aug.cols());
         (*H)[0] = H_aug;
@@ -246,14 +244,9 @@ namespace gtsam {
 
       return err_wh_eq;
     }
-    
-    /* ************************************************************************* */
-    Vector whitenedError(const Values& x, std::vector<Matrix>& H) const {
-      return whitenedError(x, &H);
-    }
 
     /* ************************************************************************* */
-    Vector calcIndicatorProb(const Values& x) const {
+    gtsam::Vector calcIndicatorProb(const gtsam::Values& x) const {
 
       Vector err =  unwhitenedError(x);
 
@@ -261,7 +254,7 @@ namespace gtsam {
     }
 
     /* ************************************************************************* */
-    Vector calcIndicatorProb(const Values& x, const Vector& err) const {
+    gtsam::Vector calcIndicatorProb(const gtsam::Values& x, const gtsam::Vector& err) const {
 
       // Calculate indicator probabilities (inlier and outlier)
       Vector err_wh_inlier  = model_inlier_->whiten(err);
@@ -295,7 +288,7 @@ namespace gtsam {
     }
 
     /* ************************************************************************* */
-    Vector unwhitenedError(const Values& x) const {
+    gtsam::Vector unwhitenedError(const gtsam::Values& x) const {
 
       T orgA_T_currA = valA_.at<T>(keyA_);
       T orgB_T_currB = valB_.at<T>(keyB_);
@@ -332,10 +325,10 @@ namespace gtsam {
     }
 
     /* ************************************************************************* */
-    void updateNoiseModels(const Values& values, const Marginals& marginals) {
+    void updateNoiseModels(const gtsam::Values& values, const gtsam::Marginals& marginals) {
       /* given marginals version, don't need to marginal multiple times if update a lot */
 
-      KeyVector Keys;
+      std::vector<gtsam::Key> Keys;
       Keys.push_back(keyA_);
       Keys.push_back(keyB_);
       JointMarginal joint_marginal12 = marginals.jointMarginalCovariance(Keys);
@@ -347,7 +340,7 @@ namespace gtsam {
     }
 
     /* ************************************************************************* */
-    void updateNoiseModels(const Values& values, const NonlinearFactorGraph& graph){
+    void updateNoiseModels(const gtsam::Values& values, const gtsam::NonlinearFactorGraph& graph){
       /* Update model_inlier_ and model_outlier_ to account for uncertainty in robot trajectories
        * (note these are given in the E step, where indicator probabilities are calculated).
        *
@@ -365,7 +358,7 @@ namespace gtsam {
     }
 
     /* ************************************************************************* */
-    void updateNoiseModels_givenCovs(const Values& values, const Matrix& cov1, const Matrix& cov2, const Matrix& cov12){
+    void updateNoiseModels_givenCovs(const gtsam::Values& values, const Matrix& cov1, const Matrix& cov2, const Matrix& cov12){
       /* Update model_inlier_ and model_outlier_ to account for uncertainty in robot trajectories
        * (note these are given in the E step, where indicator probabilities are calculated).
        *
@@ -396,10 +389,10 @@ namespace gtsam {
 
       // update inlier and outlier noise models
       Matrix covRinlier = (model_inlier_->R().transpose()*model_inlier_->R()).inverse();
-      model_inlier_ = noiseModel::Gaussian::Covariance(covRinlier + cov_state);
+      model_inlier_ = gtsam::noiseModel::Gaussian::Covariance(covRinlier + cov_state);
 
       Matrix covRoutlier = (model_outlier_->R().transpose()*model_outlier_->R()).inverse();
-      model_outlier_ = noiseModel::Gaussian::Covariance(covRoutlier + cov_state);
+      model_outlier_ = gtsam::noiseModel::Gaussian::Covariance(covRoutlier + cov_state);
 
       //       model_inlier_->print("after:");
       //       std::cout<<"covRinlier + cov_state: "<<covRinlier + cov_state<<std::endl;
@@ -408,13 +401,17 @@ namespace gtsam {
 
     /* ************************************************************************* */
 
-    size_t dim() const override {
+    /** number of variables attached to this factor */
+    std::size_t size() const {
+      return 1;
+    }
+
+    virtual size_t dim() const {
       return model_inlier_->R().rows() + model_inlier_->R().cols();
     }
 
   private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
     /** Serialization function */
     friend class boost::serialization::access;
     template<class ARCHIVE>
@@ -423,7 +420,6 @@ namespace gtsam {
           boost::serialization::base_object<Base>(*this));
       //ar & BOOST_SERIALIZATION_NVP(measured_);
     }
-#endif
   }; // \class TransformBtwRobotsUnaryFactorEM
 
   /// traits

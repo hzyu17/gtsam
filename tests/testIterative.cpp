@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -16,6 +16,7 @@
  **/
 
 #include <tests/smallExample.h>
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/nonlinear/NonlinearEquality.h>
 #include <gtsam/inference/Symbol.h>
@@ -59,8 +60,10 @@ TEST( Iterative, conjugateGradientDescent )
   VectorValues expected = fg.optimize();
 
   // get matrices
+  Matrix A;
+  Vector b;
   Vector x0 = Z_6x1;
-  const auto [A, b] = fg.jacobian();
+  boost::tie(A, b) = fg.jacobian();
   Vector expectedX = (Vector(6) << -0.1, 0.1, -0.1, -0.1, 0.1, -0.2).finished();
 
   // Do conjugate gradient descent, System version
@@ -87,10 +90,10 @@ TEST( Iterative, conjugateGradientDescent_hard_constraint )
   config.insert(X(2), Pose2(1.5,0.,0.));
 
   NonlinearFactorGraph graph;
-  graph.emplace_shared<NonlinearEquality<Pose2>>(X(1), pose1);
-  graph.emplace_shared<BetweenFactor<Pose2>>(X(1),X(2), Pose2(1.,0.,0.), noiseModel::Isotropic::Sigma(3, 1));
+  graph += NonlinearEquality<Pose2>(X(1), pose1);
+  graph += BetweenFactor<Pose2>(X(1),X(2), Pose2(1.,0.,0.), noiseModel::Isotropic::Sigma(3, 1));
 
-  std::shared_ptr<GaussianFactorGraph> fg = graph.linearize(config);
+  boost::shared_ptr<GaussianFactorGraph> fg = graph.linearize(config);
 
   VectorValues zeros = config.zeroVectors();
 
@@ -114,10 +117,10 @@ TEST( Iterative, conjugateGradientDescent_soft_constraint )
   config.insert(X(2), Pose2(1.5,0.,0.));
 
   NonlinearFactorGraph graph;
-  graph.addPrior(X(1), Pose2(0.,0.,0.), noiseModel::Isotropic::Sigma(3, 1e-10));
-  graph.emplace_shared<BetweenFactor<Pose2>>(X(1),X(2), Pose2(1.,0.,0.), noiseModel::Isotropic::Sigma(3, 1));
+  graph += PriorFactor<Pose2>(X(1), Pose2(0.,0.,0.), noiseModel::Isotropic::Sigma(3, 1e-10));
+  graph += BetweenFactor<Pose2>(X(1),X(2), Pose2(1.,0.,0.), noiseModel::Isotropic::Sigma(3, 1));
 
-  std::shared_ptr<GaussianFactorGraph> fg = graph.linearize(config);
+  boost::shared_ptr<GaussianFactorGraph> fg = graph.linearize(config);
 
   VectorValues zeros = config.zeroVectors();
 

@@ -19,9 +19,7 @@
 #include <gtsam/linear/VectorValues.h>
 #include <gtsam/linear/linearAlgorithms-inst.h>
 #include <gtsam/nonlinear/ISAM2Clique.h>
-
 #include <stack>
-#include <utility>
 
 using namespace std;
 
@@ -39,9 +37,9 @@ void ISAM2Clique::setEliminationResult(
   gradientContribution_.resize(conditional_->cols() - 1);
   // Rewrite -(R * P')'*d   as   -(d' * R * P')'   for computational speed
   // reasons
-  gradientContribution_ << -conditional_->R().transpose() *
-                               conditional_->d(),
-      -conditional_->S().transpose() * conditional_->d();
+  gradientContribution_ << -conditional_->get_R().transpose() *
+                               conditional_->get_d(),
+      -conditional_->get_S().transpose() * conditional_->get_d();
 }
 
 /* ************************************************************************* */
@@ -143,8 +141,8 @@ void ISAM2Clique::fastBackSubstitute(VectorValues* delta) const {
     // This is because Eigen (as of 3.3) no longer evaluates S * xS into
     // a temporary, and the operation trashes valus in xS.
     // See: http://eigen.tuxfamily.org/index.php?title=3.3
-    const Vector rhs = c.getb() - c.S() * xS;
-    const Vector solution = c.R().triangularView<Eigen::Upper>().solve(rhs);
+    const Vector rhs = c.getb() - c.get_S() * xS;
+    const Vector solution = c.get_R().triangularView<Eigen::Upper>().solve(rhs);
 
     // Check for indeterminant solution
     if (solution.hasNaN())
@@ -174,7 +172,7 @@ bool ISAM2Clique::valuesChanged(const KeySet& replaced,
                                 double threshold) const {
   auto frontals = conditional_->frontals();
   if (replaced.exists(frontals.front())) return true;
-  Vector diff = originalValues - delta.vector(frontals);
+  auto diff = originalValues - delta.vector(frontals);
   return diff.lpNorm<Eigen::Infinity>() >= threshold;
 }
 
@@ -245,7 +243,7 @@ bool ISAM2Clique::optimizeWildfireNode(const KeySet& replaced, double threshold,
 
     // Back-substitute
     fastBackSubstitute(delta);
-    *count += conditional_->nrFrontals();
+    count += conditional_->nrFrontals();
 
     if (valuesChanged(replaced, originalValues, *delta, threshold)) {
       markFrontalsAsChanged(changed);
@@ -286,7 +284,7 @@ size_t optimizeWildfireNonRecursive(const ISAM2Clique::shared_ptr& root,
 /* ************************************************************************* */
 void ISAM2Clique::nnz_internal(size_t* result) const {
   size_t dimR = conditional_->rows();
-  size_t dimSep = conditional_->S().cols();
+  size_t dimSep = conditional_->get_S().cols();
   *result += ((dimR + 1) * dimR) / 2 + dimSep * dimR;
   // traverse the children
   for (const auto& child : children) {
@@ -306,7 +304,7 @@ void ISAM2Clique::findAll(const KeySet& markedMask, KeySet* keys) const {
   static const bool debug = false;
   // does the separator contain any of the variables?
   bool found = false;
-  for (Key key : conditional_->parents()) {
+  for (Key key : conditional()->parents()) {
     if (markedMask.exists(key)) {
       found = true;
       break;
@@ -314,30 +312,12 @@ void ISAM2Clique::findAll(const KeySet& markedMask, KeySet* keys) const {
   }
   if (found) {
     // then add this clique
-    keys->insert(conditional_->beginFrontals(), conditional_->endFrontals());
+    keys->insert(conditional()->beginFrontals(), conditional()->endFrontals());
     if (debug) print("Key(s) marked in clique ");
-    if (debug) cout << "so marking key " << conditional_->front() << endl;
+    if (debug) cout << "so marking key " << conditional()->front() << endl;
   }
   for (const auto& child : children) {
     child->findAll(markedMask, keys);
-  }
-}
-
-/* ************************************************************************* */
-void ISAM2Clique::addGradientAtZero(VectorValues* g) const {
-  // Loop through variables in each clique, adding contributions
-  DenseIndex position = 0;
-  for (auto it = conditional_->begin(); it != conditional_->end(); ++it) {
-    const DenseIndex dim = conditional_->getDim(it);
-    const Vector contribution = gradientContribution_.segment(position, dim);
-    auto [values_it, success] = g->tryInsert(*it, contribution);
-    if (!success) values_it->second += contribution;
-    position += dim;
-  }
-
-  // Recursively add contributions from children
-  for (const auto& child : children) {
-    child->addGradientAtZero(g);
   }
 }
 

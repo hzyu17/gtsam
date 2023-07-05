@@ -17,13 +17,9 @@
  *  @author Vadim Indelman
  *  @author David Jensen
  *  @author Frank Dellaert
- *  @author Varun Agrawal
  **/
 
 #include <gtsam/navigation/CombinedImuFactor.h>
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
-#include <boost/serialization/export.hpp>
-#endif
 
 /* External or standard includes */
 #include <ostream>
@@ -31,31 +27,6 @@
 namespace gtsam {
 
 using namespace std;
-
-//------------------------------------------------------------------------------
-// Inner class PreintegrationCombinedParams
-//------------------------------------------------------------------------------
-void PreintegrationCombinedParams::print(const string& s) const {
-  PreintegrationParams::print(s);
-  cout << "biasAccCovariance:\n[\n" << biasAccCovariance << "\n]"
-       << endl;
-  cout << "biasOmegaCovariance:\n[\n" << biasOmegaCovariance << "\n]"
-       << endl;
-  cout << "biasAccOmegaInt:\n[\n" << biasAccOmegaInt << "\n]"
-       << endl;
-}
-
-//------------------------------------------------------------------------------
-bool PreintegrationCombinedParams::equals(const PreintegratedRotationParams& other,
-                                  double tol) const {
-  auto e = dynamic_cast<const PreintegrationCombinedParams*>(&other);
-  return e != nullptr && PreintegrationParams::equals(other, tol) &&
-         equal_with_abs_tol(biasAccCovariance, e->biasAccCovariance,
-                            tol) &&
-         equal_with_abs_tol(biasOmegaCovariance, e->biasOmegaCovariance,
-                            tol) &&
-         equal_with_abs_tol(biasAccOmegaInt, e->biasAccOmegaInt, tol);
-}
 
 //------------------------------------------------------------------------------
 // Inner class PreintegratedCombinedMeasurements
@@ -74,17 +45,7 @@ bool PreintegratedCombinedMeasurements::equals(
 
 //------------------------------------------------------------------------------
 void PreintegratedCombinedMeasurements::resetIntegration() {
-  // Base class method to reset the preintegrated measurements
   PreintegrationType::resetIntegration();
-  preintMeasCov_.setZero();
-}
-
-//------------------------------------------------------------------------------
-void PreintegratedCombinedMeasurements::resetIntegration(
-    const gtsam::Matrix6& Q_init) {
-  // Base class method to reset the preintegrated measurements
-  PreintegrationType::resetIntegration();
-  p().biasAccOmegaInt = Q_init;
   preintMeasCov_.setZero();
 }
 
@@ -105,14 +66,9 @@ void PreintegratedCombinedMeasurements::resetIntegration(
 //------------------------------------------------------------------------------
 void PreintegratedCombinedMeasurements::integrateMeasurement(
     const Vector3& measuredAcc, const Vector3& measuredOmega, double dt) {
-  if (dt <= 0) {
-    throw std::runtime_error(
-        "PreintegratedCombinedMeasurements::integrateMeasurement: dt <=0");
-  }
-
   // Update preintegrated measurements.
-  Matrix9 A; // Jacobian wrt preintegrated measurements without bias (df/dx)
-  Matrix93 B, C;  // Jacobian of state wrpt accel bias and omega bias respectively.
+  Matrix9 A; // overall Jacobian wrt preintegrated measurements (df/dx)
+  Matrix93 B, C;
   PreintegrationType::update(measuredAcc, measuredOmega, dt, &A, &B, &C);
 
   // Update preintegrated measurements covariance: as in [2] we consider a first
@@ -122,80 +78,72 @@ void PreintegratedCombinedMeasurements::integrateMeasurement(
   // and preintegrated measurements
 
   // Single Jacobians to propagate covariance
-  Matrix3 theta_H_omega = C.topRows<3>();
-  Matrix3 pos_H_acc = B.middleRows<3>(3);
-  Matrix3 vel_H_acc = B.bottomRows<3>();
-
-  Matrix3 theta_H_biasOmegaInit = -theta_H_omega;
-  Matrix3 pos_H_biasAccInit = -pos_H_acc;
-  Matrix3 vel_H_biasAccInit = -vel_H_acc;
+  // TODO(frank): should we not also account for bias on position?
+  Matrix3 theta_H_biasOmega = -C.topRows<3>();
+  Matrix3 vel_H_biasAcc = -B.bottomRows<3>();
 
   // overall Jacobian wrt preintegrated measurements (df/dx)
   Eigen::Matrix<double, 15, 15> F;
   F.setZero();
   F.block<9, 9>(0, 0) = A;
-  F.block<3, 3>(0, 12) = theta_H_omega;
-  F.block<3, 3>(3, 9) = pos_H_acc;
-  F.block<3, 3>(6, 9) = vel_H_acc;
+  F.block<3, 3>(0, 12) = theta_H_biasOmega;
+  F.block<3, 3>(6, 9) = vel_H_biasAcc;
   F.block<6, 6>(9, 9) = I_6x6;
-
-  // Update the uncertainty on the state (matrix F in [4]).
-  preintMeasCov_ = F * preintMeasCov_ * F.transpose();
 
   // propagate uncertainty
   // TODO(frank): use noiseModel routine so we can have arbitrary noise models.
   const Matrix3& aCov = p().accelerometerCovariance;
   const Matrix3& wCov = p().gyroscopeCovariance;
   const Matrix3& iCov = p().integrationCovariance;
-  const Matrix6& bInitCov = p().biasAccOmegaInt;
 
   // first order uncertainty propagation
-  // Optimized matrix mult: (1/dt) * G * measurementCovariance * G.transpose()
+  // Optimized matrix multiplication   (1/dt) * G * measurementCovariance *
+  // G.transpose()
   Eigen::Matrix<double, 15, 15> G_measCov_Gt;
   G_measCov_Gt.setZero(15, 15);
 
-  const Matrix3& bInitCov11 = bInitCov.block<3, 3>(0, 0) / dt;
-  const Matrix3& bInitCov12 = bInitCov.block<3, 3>(0, 3) / dt;
-  const Matrix3& bInitCov21 = bInitCov.block<3, 3>(3, 0) / dt;
-  const Matrix3& bInitCov22 = bInitCov.block<3, 3>(3, 3) / dt;
-
   // BLOCK DIAGONAL TERMS
-  D_R_R(&G_measCov_Gt) =
-      (theta_H_omega * (wCov / dt) * theta_H_omega.transpose())  //
-      +
-      (theta_H_biasOmegaInit * bInitCov22 * theta_H_biasOmegaInit.transpose());
-
-  D_t_t(&G_measCov_Gt) =
-      (pos_H_acc * (aCov / dt) * pos_H_acc.transpose())           //
-      + (pos_H_biasAccInit * bInitCov11 * pos_H_biasAccInit.transpose())  //
-      + (dt * iCov);
-
-  D_v_v(&G_measCov_Gt) =
-      (vel_H_acc * (aCov / dt) * vel_H_acc.transpose())  //
-      + (vel_H_biasAccInit * bInitCov11 * vel_H_biasAccInit.transpose());
-
+  D_t_t(&G_measCov_Gt) = dt * iCov;
+  D_v_v(&G_measCov_Gt) = (1 / dt) * vel_H_biasAcc
+      * (aCov + p().biasAccOmegaInt.block<3, 3>(0, 0))
+      * (vel_H_biasAcc.transpose());
+  D_R_R(&G_measCov_Gt) = (1 / dt) * theta_H_biasOmega
+      * (wCov + p().biasAccOmegaInt.block<3, 3>(3, 3))
+      * (theta_H_biasOmega.transpose());
   D_a_a(&G_measCov_Gt) = dt * p().biasAccCovariance;
   D_g_g(&G_measCov_Gt) = dt * p().biasOmegaCovariance;
 
   // OFF BLOCK DIAGONAL TERMS
-  D_R_t(&G_measCov_Gt) =
-      theta_H_biasOmegaInit * bInitCov21 * pos_H_biasAccInit.transpose();
-  D_R_v(&G_measCov_Gt) =
-      theta_H_biasOmegaInit * bInitCov21 * vel_H_biasAccInit.transpose();
-  D_t_R(&G_measCov_Gt) =
-      pos_H_biasAccInit * bInitCov12 * theta_H_biasOmegaInit.transpose();
-  D_t_v(&G_measCov_Gt) =
-      (pos_H_acc * (aCov / dt) * vel_H_acc.transpose()) +
-      (pos_H_biasAccInit * bInitCov11 * vel_H_biasAccInit.transpose());
-  D_v_R(&G_measCov_Gt) =
-      vel_H_biasAccInit * bInitCov12 * theta_H_biasOmegaInit.transpose();
-  D_v_t(&G_measCov_Gt) =
-      (vel_H_acc * (aCov / dt) * pos_H_acc.transpose()) +
-      (vel_H_biasAccInit * bInitCov11 * pos_H_biasAccInit.transpose());
-
-  preintMeasCov_.noalias() += G_measCov_Gt;
+  Matrix3 temp = vel_H_biasAcc * p().biasAccOmegaInt.block<3, 3>(3, 0)
+      * theta_H_biasOmega.transpose();
+  D_v_R(&G_measCov_Gt) = temp;
+  D_R_v(&G_measCov_Gt) = temp.transpose();
+  preintMeasCov_ = F * preintMeasCov_ * F.transpose() + G_measCov_Gt;
 }
 
+//------------------------------------------------------------------------------
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+PreintegratedCombinedMeasurements::PreintegratedCombinedMeasurements(
+    const imuBias::ConstantBias& biasHat, const Matrix3& measuredAccCovariance,
+    const Matrix3& measuredOmegaCovariance,
+    const Matrix3& integrationErrorCovariance, const Matrix3& biasAccCovariance,
+    const Matrix3& biasOmegaCovariance, const Matrix6& biasAccOmegaInt,
+    const bool use2ndOrderIntegration) {
+  if (!use2ndOrderIntegration)
+  throw("PreintegratedImuMeasurements no longer supports first-order integration: it incorrectly compensated for gravity");
+  biasHat_ = biasHat;
+  boost::shared_ptr<Params> p = Params::MakeSharedD();
+  p->gyroscopeCovariance = measuredOmegaCovariance;
+  p->accelerometerCovariance = measuredAccCovariance;
+  p->integrationCovariance = integrationErrorCovariance;
+  p->biasAccCovariance = biasAccCovariance;
+  p->biasOmegaCovariance = biasOmegaCovariance;
+  p->biasAccOmegaInt = biasAccOmegaInt;
+  p_ = p;
+  resetIntegration();
+  preintMeasCov_.setZero();
+}
+#endif
 //------------------------------------------------------------------------------
 // CombinedImuFactor methods
 //------------------------------------------------------------------------------
@@ -208,18 +156,17 @@ CombinedImuFactor::CombinedImuFactor(Key pose_i, Key vel_i, Key pose_j,
 
 //------------------------------------------------------------------------------
 gtsam::NonlinearFactor::shared_ptr CombinedImuFactor::clone() const {
-  return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  return boost::static_pointer_cast<gtsam::NonlinearFactor>(
       gtsam::NonlinearFactor::shared_ptr(new This(*this)));
 }
 
 //------------------------------------------------------------------------------
 void CombinedImuFactor::print(const string& s,
     const KeyFormatter& keyFormatter) const {
-  cout << (s.empty() ? s : s + "\n") << "CombinedImuFactor("
-       << keyFormatter(this->key<1>()) << "," << keyFormatter(this->key<2>()) << ","
-       << keyFormatter(this->key<3>()) << "," << keyFormatter(this->key<4>()) << ","
-       << keyFormatter(this->key<5>()) << "," << keyFormatter(this->key<6>())
-       << ")\n";
+  cout << s << "CombinedImuFactor(" << keyFormatter(this->key1()) << ","
+      << keyFormatter(this->key2()) << "," << keyFormatter(this->key3()) << ","
+      << keyFormatter(this->key4()) << "," << keyFormatter(this->key5()) << ","
+      << keyFormatter(this->key6()) << ")\n";
   _PIM_.print("  preintegrated measurements:");
   this->noiseModel_->print("  noise model: ");
 }
@@ -227,16 +174,16 @@ void CombinedImuFactor::print(const string& s,
 //------------------------------------------------------------------------------
 bool CombinedImuFactor::equals(const NonlinearFactor& other, double tol) const {
   const This* e = dynamic_cast<const This*>(&other);
-  return e != nullptr && Base::equals(*e, tol) && _PIM_.equals(e->_PIM_, tol);
+  return e != NULL && Base::equals(*e, tol) && _PIM_.equals(e->_PIM_, tol);
 }
 
 //------------------------------------------------------------------------------
 Vector CombinedImuFactor::evaluateError(const Pose3& pose_i,
     const Vector3& vel_i, const Pose3& pose_j, const Vector3& vel_j,
     const imuBias::ConstantBias& bias_i, const imuBias::ConstantBias& bias_j,
-    OptionalMatrixType H1, OptionalMatrixType H2,
-    OptionalMatrixType H3, OptionalMatrixType H4,
-    OptionalMatrixType H5, OptionalMatrixType H6) const {
+    boost::optional<Matrix&> H1, boost::optional<Matrix&> H2,
+    boost::optional<Matrix&> H3, boost::optional<Matrix&> H4,
+    boost::optional<Matrix&> H5, boost::optional<Matrix&> H6) const {
 
   // error wrt bias evolution model (random walk)
   Matrix6 Hbias_i, Hbias_j;
@@ -296,10 +243,39 @@ Vector CombinedImuFactor::evaluateError(const Pose3& pose_i,
 }
 
 //------------------------------------------------------------------------------
-std::ostream& operator<<(std::ostream& os, const CombinedImuFactor& f) {
-  f._PIM_.print("combined preintegrated measurements:\n");
-  os << "  noise model sigmas: " << f.noiseModel_->sigmas().transpose();
-  return os;
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+CombinedImuFactor::CombinedImuFactor(
+    Key pose_i, Key vel_i, Key pose_j, Key vel_j, Key bias_i, Key bias_j,
+    const CombinedPreintegratedMeasurements& pim, const Vector3& n_gravity,
+    const Vector3& omegaCoriolis, const boost::optional<Pose3>& body_P_sensor,
+    const bool use2ndOrderCoriolis)
+: Base(noiseModel::Gaussian::Covariance(pim.preintMeasCov_), pose_i, vel_i,
+    pose_j, vel_j, bias_i, bias_j),
+_PIM_(pim) {
+  boost::shared_ptr<CombinedPreintegratedMeasurements::Params> p =
+  boost::make_shared<CombinedPreintegratedMeasurements::Params>(pim.p());
+  p->n_gravity = n_gravity;
+  p->omegaCoriolis = omegaCoriolis;
+  p->body_P_sensor = body_P_sensor;
+  p->use2ndOrderCoriolis = use2ndOrderCoriolis;
+  _PIM_.p_ = p;
 }
 
-}  // namespace gtsam
+void CombinedImuFactor::Predict(const Pose3& pose_i, const Vector3& vel_i,
+    Pose3& pose_j, Vector3& vel_j,
+    const imuBias::ConstantBias& bias_i,
+    CombinedPreintegratedMeasurements& pim,
+    const Vector3& n_gravity,
+    const Vector3& omegaCoriolis,
+    const bool use2ndOrderCoriolis) {
+  // use deprecated predict
+  PoseVelocityBias pvb = pim.predict(pose_i, vel_i, bias_i, n_gravity,
+      omegaCoriolis, use2ndOrderCoriolis);
+  pose_j = pvb.pose;
+  vel_j = pvb.velocity;
+}
+#endif
+
+}
+ /// namespace gtsam
+

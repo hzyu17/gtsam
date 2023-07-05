@@ -25,14 +25,12 @@
 #include <gtsam/base/types.h>
 #include <gtsam/dllexport.h>
 
-#include <functional>
-
-#include <iosfwd>
+#include <boost/function.hpp>
 
 namespace gtsam {
 
 /// Typedef for a function to format a key, i.e. to convert it to a string
-using KeyFormatter = std::function<std::string(Key)>;
+typedef boost::function<std::string(Key)> KeyFormatter;
 
 // Helper function for DefaultKeyFormatter
 GTSAM_EXPORT std::string _defaultKeyFormatter(Key key);
@@ -54,61 +52,29 @@ GTSAM_EXPORT std::string _multirobotKeyFormatter(gtsam::Key key);
 static const gtsam::KeyFormatter MultiRobotKeyFormatter =
     &_multirobotKeyFormatter;
 
-/// To use the key_formatter on Keys, they must be wrapped in a StreamedKey.
-struct StreamedKey {
-  const Key &key_;
-  explicit StreamedKey(const Key &key) : key_(key) {}
-  GTSAM_EXPORT friend std::ostream &operator<<(std::ostream &, const StreamedKey &);
-};
-
-/**
- * Output stream manipulator that will format gtsam::Keys according to the given
- * KeyFormatter, as long as Key values are wrapped in a gtsam::StreamedKey.
- * LabeledSymbol and Symbol values do not have to be wrapped.
- * usage:
- *   Key key = LabeledSymbol('x', 'A', 5); // cast to key type
- *   cout << key_formatter(MultiRobotKeyFormatter) << StreamedKey(key);
- */
-class key_formatter {
- public:
-  explicit key_formatter(KeyFormatter v) : formatter_(v) {}
-  GTSAM_EXPORT friend std::ostream &operator<<(std::ostream &, const key_formatter &);
-  GTSAM_EXPORT friend std::ostream &operator<<(std::ostream &, const StreamedKey &);
-
- private:
-  KeyFormatter formatter_;
-  static void *&property(std::ios_base &s);
-  static void set_property(std::ios_base &s, const KeyFormatter &f);
-  static KeyFormatter *get_property(std::ios_base &s);
-};
-
-/// Define collection type once and for all - also used in wrappers
-using KeyVector = FastVector<Key>;
+/// Useful typedef for operations with Values - allows for matlab interface
+typedef FastVector<Key> KeyVector;
 
 // TODO(frank): Nothing fast about these :-(
-using KeyList = FastList<Key>;
-using KeySet = FastSet<Key>;
-using KeyGroupMap = FastMap<Key, int>;
+typedef FastList<Key> KeyList;
+typedef FastSet<Key> KeySet;
+typedef FastMap<Key, int> KeyGroupMap;
 
 /// Utility function to print one key with optional prefix
-GTSAM_EXPORT void PrintKey(
-    Key key, const std::string &s = "",
-    const KeyFormatter &keyFormatter = DefaultKeyFormatter);
+GTSAM_EXPORT void PrintKey(Key key, const std::string& s = "",
+    const KeyFormatter& keyFormatter = DefaultKeyFormatter);
 
 /// Utility function to print sets of keys with optional prefix
-GTSAM_EXPORT void PrintKeyList(
-    const KeyList &keys, const std::string &s = "",
-    const KeyFormatter &keyFormatter = DefaultKeyFormatter);
+GTSAM_EXPORT void PrintKeyList(const KeyList& keys, const std::string& s = "",
+    const KeyFormatter& keyFormatter = DefaultKeyFormatter);
 
 /// Utility function to print sets of keys with optional prefix
-GTSAM_EXPORT void PrintKeyVector(
-    const KeyVector &keys, const std::string &s = "",
-    const KeyFormatter &keyFormatter = DefaultKeyFormatter);
+GTSAM_EXPORT void PrintKeyVector(const KeyVector& keys, const std::string& s =
+    "", const KeyFormatter& keyFormatter = DefaultKeyFormatter);
 
 /// Utility function to print sets of keys with optional prefix
-GTSAM_EXPORT void PrintKeySet(
-    const KeySet &keys, const std::string &s = "",
-    const KeyFormatter &keyFormatter = DefaultKeyFormatter);
+GTSAM_EXPORT void PrintKeySet(const KeySet& keys, const std::string& s = "",
+    const KeyFormatter& keyFormatter = DefaultKeyFormatter);
 
 // Define Key to be Testable by specializing gtsam::traits
 template<typename T> struct traits;

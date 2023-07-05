@@ -6,6 +6,7 @@
 
 #include <gtsam_unstable/nonlinear/NonlinearClusterTree.h>
 #include <gtsam/sam/BearingRangeFactor.h>
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam/geometry/Point2.h>
@@ -26,7 +27,7 @@ NonlinearFactorGraph planarSLAMGraph() {
   // Prior on pose x1 at the origin.
   Pose2 prior(0.0, 0.0, 0.0);
   auto priorNoise = noiseModel::Diagonal::Sigmas(Vector3(0.3, 0.3, 0.1));
-  graph.addPrior(x1, prior, priorNoise);
+  graph.emplace_shared<PriorFactor<Pose2> >(x1, prior, priorNoise);
 
   // Two odometry factors
   Pose2 odometry(2.0, 0.0, 0.0);
@@ -67,9 +68,9 @@ TEST(NonlinearClusterTree, Clusters) {
   // NOTE(frank): Order matters here as factors are removed!
   VariableIndex variableIndex(graph);
   typedef NonlinearClusterTree::NonlinearCluster Cluster;
-  auto marginalCluster = std::shared_ptr<Cluster>(new Cluster(variableIndex, {x1}, &graph));
-  auto landmarkCluster = std::shared_ptr<Cluster>(new Cluster(variableIndex, {l1, l2}, &graph));
-  auto rootCluster = std::shared_ptr<Cluster>(new Cluster(variableIndex, {x2, x3}, &graph));
+  auto marginalCluster = boost::shared_ptr<Cluster>(new Cluster(variableIndex, {x1}, &graph));
+  auto landmarkCluster = boost::shared_ptr<Cluster>(new Cluster(variableIndex, {l1, l2}, &graph));
+  auto rootCluster = boost::shared_ptr<Cluster>(new Cluster(variableIndex, {x2, x3}, &graph));
 
   EXPECT_LONGS_EQUAL(3, marginalCluster->nrFactors());
   EXPECT_LONGS_EQUAL(2, landmarkCluster->nrFactors());
@@ -86,8 +87,8 @@ TEST(NonlinearClusterTree, Clusters) {
   // Calculate expected result of only evaluating the marginalCluster
   Ordering ordering;
   ordering.push_back(x1);
-  const auto [bn, fg] = gfg->eliminatePartialSequential(ordering);
-  auto expectedFactor = std::dynamic_pointer_cast<HessianFactor>(fg->at(0));
+  auto expected = gfg->eliminatePartialSequential(ordering);
+  auto expectedFactor = boost::dynamic_pointer_cast<HessianFactor>(expected.second->at(0));
   if (!expectedFactor)
     throw std::runtime_error("Expected HessianFactor");
 
@@ -95,7 +96,7 @@ TEST(NonlinearClusterTree, Clusters) {
   auto actual = marginalCluster->linearizeAndEliminate(initial);
   const GaussianBayesNet& bayesNet = actual.first;
   const HessianFactor& factor = *actual.second;
-  EXPECT(assert_equal(*bn->at(0), *bayesNet.at(0), 1e-6));
+  EXPECT(assert_equal(*expected.first->at(0), *bayesNet.at(0), 1e-6));
   EXPECT(assert_equal(*expectedFactor, factor, 1e-6));
 }
 
@@ -106,9 +107,9 @@ static NonlinearClusterTree Construct() {
   NonlinearFactorGraph graph = planarSLAMGraph();
   VariableIndex variableIndex(graph);
   typedef NonlinearClusterTree::NonlinearCluster Cluster;
-  auto marginalCluster = std::shared_ptr<Cluster>(new Cluster(variableIndex, {x1}, &graph));
-  auto landmarkCluster = std::shared_ptr<Cluster>(new Cluster(variableIndex, {l1, l2}, &graph));
-  auto rootCluster = std::shared_ptr<Cluster>(new Cluster(variableIndex, {x2, x3}, &graph));
+  auto marginalCluster = boost::shared_ptr<Cluster>(new Cluster(variableIndex, {x1}, &graph));
+  auto landmarkCluster = boost::shared_ptr<Cluster>(new Cluster(variableIndex, {l1, l2}, &graph));
+  auto rootCluster = boost::shared_ptr<Cluster>(new Cluster(variableIndex, {x2, x3}, &graph));
 
   // Build the tree
   NonlinearClusterTree clusterTree;

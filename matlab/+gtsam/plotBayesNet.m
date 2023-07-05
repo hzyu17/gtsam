@@ -6,5 +6,3 @@ bayesNet.saveGraph('/tmp/bayesNet.dot')
 !dot -Tpng -o /tmp/dotImage.png /tmp/bayesNet.dot
 dotImage=imread('/tmp/dotImage.png');
 imshow(dotImage)
-
-end

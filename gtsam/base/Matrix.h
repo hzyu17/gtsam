@@ -17,17 +17,23 @@
  * @author  Frank Dellaert
  * @author  Alex Cunningham
  * @author  Alex Hagiopol
- * @author  Varun Agrawal
  */
 
 // \callgraph
 
 #pragma once
-
 #include <gtsam/base/OptionalJacobian.h>
 #include <gtsam/base/Vector.h>
-
-#include <vector>
+#include <gtsam/config.h>
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+#include <Eigen/Core>
+#include <Eigen/Cholesky>
+#include <Eigen/LU>
+#endif
+#include <boost/format.hpp>
+#include <boost/function.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/math/special_functions/fpclassify.hpp>
 
 /**
  * Matrix is a typedef in the gtsam namespace
@@ -42,36 +48,32 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> M
 // Create handy typedefs and constants for square-size matrices
 // MatrixMN, MatrixN = MatrixNN, I_NxN, and Z_NxN, for M,N=1..9
 #define GTSAM_MAKE_MATRIX_DEFS(N)   \
-using Matrix##N = Eigen::Matrix<double, N, N>;  \
-using Matrix1##N = Eigen::Matrix<double, 1, N>;  \
-using Matrix2##N = Eigen::Matrix<double, 2, N>;  \
-using Matrix3##N = Eigen::Matrix<double, 3, N>;  \
-using Matrix4##N = Eigen::Matrix<double, 4, N>;  \
-using Matrix5##N = Eigen::Matrix<double, 5, N>;  \
-using Matrix6##N = Eigen::Matrix<double, 6, N>;  \
-using Matrix7##N = Eigen::Matrix<double, 7, N>;  \
-using Matrix8##N = Eigen::Matrix<double, 8, N>;  \
-using Matrix9##N = Eigen::Matrix<double, 9, N>;  \
+typedef Eigen::Matrix<double, N, N> Matrix##N;  \
+typedef Eigen::Matrix<double, 1, N> Matrix1##N;  \
+typedef Eigen::Matrix<double, 2, N> Matrix2##N;  \
+typedef Eigen::Matrix<double, 3, N> Matrix3##N;  \
+typedef Eigen::Matrix<double, 4, N> Matrix4##N;  \
+typedef Eigen::Matrix<double, 5, N> Matrix5##N;  \
+typedef Eigen::Matrix<double, 6, N> Matrix6##N;  \
+typedef Eigen::Matrix<double, 7, N> Matrix7##N;  \
+typedef Eigen::Matrix<double, 8, N> Matrix8##N;  \
+typedef Eigen::Matrix<double, 9, N> Matrix9##N;  \
 static const Eigen::MatrixBase<Matrix##N>::IdentityReturnType I_##N##x##N = Matrix##N::Identity(); \
 static const Eigen::MatrixBase<Matrix##N>::ConstantReturnType Z_##N##x##N = Matrix##N::Zero();
 
-GTSAM_MAKE_MATRIX_DEFS(1)
-GTSAM_MAKE_MATRIX_DEFS(2)
-GTSAM_MAKE_MATRIX_DEFS(3)
-GTSAM_MAKE_MATRIX_DEFS(4)
-GTSAM_MAKE_MATRIX_DEFS(5)
-GTSAM_MAKE_MATRIX_DEFS(6)
-GTSAM_MAKE_MATRIX_DEFS(7)
-GTSAM_MAKE_MATRIX_DEFS(8)
-GTSAM_MAKE_MATRIX_DEFS(9)
+GTSAM_MAKE_MATRIX_DEFS(1);
+GTSAM_MAKE_MATRIX_DEFS(2);
+GTSAM_MAKE_MATRIX_DEFS(3);
+GTSAM_MAKE_MATRIX_DEFS(4);
+GTSAM_MAKE_MATRIX_DEFS(5);
+GTSAM_MAKE_MATRIX_DEFS(6);
+GTSAM_MAKE_MATRIX_DEFS(7);
+GTSAM_MAKE_MATRIX_DEFS(8);
+GTSAM_MAKE_MATRIX_DEFS(9);
 
 // Matrix expressions for accessing parts of matrices
 typedef Eigen::Block<Matrix> SubMatrix;
 typedef Eigen::Block<const Matrix> ConstSubMatrix;
-
-// Matrix formatting arguments when printing.
-// Akin to Matlab style.
-const Eigen::IOFormat& matlabFormat();
 
 /**
  * equals with a tolerance
@@ -86,9 +88,10 @@ bool equal_with_abs_tol(const Eigen::DenseBase<MATRIX>& A, const Eigen::DenseBas
 
   for(size_t i=0; i<m1; i++)
     for(size_t j=0; j<n1; j++) {
-      if(!fpEqual(A(i,j), B(i,j), tol, false)) {
+      if(boost::math::isnan(A(i,j)) ^ boost::math::isnan(B(i,j)))
         return false;
-      }
+      else if(fabs(A(i,j) - B(i,j)) > tol)
+        return false;
     }
   return true;
 }
@@ -279,7 +282,7 @@ struct Reshape<N, M, InOptions, M, N, InOptions> {
 
 template <int OutM, int OutN, int OutOptions, int InM, int InN, int InOptions>
 inline typename Reshape<OutM, OutN, OutOptions, InM, InN, InOptions>::ReshapedType reshape(const Eigen::Matrix<double, InM, InN, InOptions> & m){
-  static_assert(InM * InN == OutM * OutN);
+  BOOST_STATIC_ASSERT(InM * InN == OutM * OutN);
   return Reshape<OutM, OutN, OutOptions, InM, InN, InOptions>::reshape(m);
 }
 
@@ -296,7 +299,7 @@ GTSAM_EXPORT std::pair<Matrix,Matrix> qr(const Matrix& A);
  * @param A is the input matrix, and is the output
  * @param clear_below_diagonal enables zeroing out below diagonal
  */
-GTSAM_EXPORT void inplace_QR(Matrix& A);
+void inplace_QR(Matrix& A);
 
 /**
  * Imperative algorithm for in-place full elimination with
@@ -306,7 +309,7 @@ GTSAM_EXPORT void inplace_QR(Matrix& A);
  * @param sigmas is a vector of the measurement standard deviation
  * @return list of r vectors, d  and sigma
  */
-GTSAM_EXPORT std::list<std::tuple<Vector, double, double> >
+GTSAM_EXPORT std::list<boost::tuple<Vector, double, double> >
 weighted_eliminate(Matrix& A, Vector& b, const Vector& sigmas);
 
 /**
@@ -433,7 +436,7 @@ GTSAM_EXPORT void svd(const Matrix& A, Matrix& U, Vector& S, Matrix& V);
  * Returns rank of A, minimum error (singular value),
  * and corresponding eigenvector (column of V, with A=U*S*V')
  */
-GTSAM_EXPORT std::tuple<int, double, Vector>
+GTSAM_EXPORT boost::tuple<int, double, Vector>
 DLT(const Matrix& A, double rank_tol = 1e-9);
 
 /**
@@ -458,8 +461,8 @@ struct MultiplyWithInverse {
 
   /// A.inverse() * b, with optional derivatives
   VectorN operator()(const MatrixN& A, const VectorN& b,
-                     OptionalJacobian<N, N* N> H1 = {},
-                     OptionalJacobian<N, N> H2 = {}) const {
+                     OptionalJacobian<N, N* N> H1 = boost::none,
+                     OptionalJacobian<N, N> H2 = boost::none) const {
     const MatrixN invA = A.inverse();
     const VectorN c = invA * b;
     // The derivative in A is just -[c[0]*invA c[1]*invA ... c[N-1]*invA]
@@ -485,7 +488,7 @@ struct MultiplyWithInverseFunction {
 
   // The function phi should calculate f(a)*b, with derivatives in a and b.
   // Naturally, the derivative in b is f(a).
-  typedef std::function<VectorN(
+  typedef boost::function<VectorN(
       const T&, const VectorN&, OptionalJacobian<N, M>, OptionalJacobian<N, N>)>
       Operator;
 
@@ -494,16 +497,16 @@ struct MultiplyWithInverseFunction {
 
   /// f(a).inverse() * b, with optional derivatives
   VectorN operator()(const T& a, const VectorN& b,
-                     OptionalJacobian<N, M> H1 = {},
-                     OptionalJacobian<N, N> H2 = {}) const {
+                     OptionalJacobian<N, M> H1 = boost::none,
+                     OptionalJacobian<N, N> H2 = boost::none) const {
     MatrixN A;
-    phi_(a, b, {}, A);  // get A = f(a) by calling f once
+    phi_(a, b, boost::none, A);  // get A = f(a) by calling f once
     const MatrixN invA = A.inverse();
     const VectorN c = invA * b;
 
     if (H1) {
       Eigen::Matrix<double, N, M> H;
-      phi_(a, c, H, {});  // get derivative H of forward mapping
+      phi_(a, c, H, boost::none);  // get derivative H of forward mapping
       *H1 = -invA* H;
     }
     if (H2) *H2 = invA;
@@ -514,9 +517,57 @@ struct MultiplyWithInverseFunction {
   const Operator phi_;
 };
 
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+inline Matrix zeros( size_t m, size_t n ) { return Matrix::Zero(m,n); }
+inline Matrix ones( size_t m, size_t n ) { return Matrix::Ones(m,n); }
+inline Matrix eye( size_t m, size_t n) { return Matrix::Identity(m, n); }
+inline Matrix eye( size_t m ) { return eye(m,m); }
+inline Matrix diag(const Vector& v) { return v.asDiagonal(); }
+inline void multiplyAdd(double alpha, const Matrix& A, const Vector& x, Vector& e) { e += alpha * A * x; }
+inline void multiplyAdd(const Matrix& A, const Vector& x, Vector& e) { e += A * x; }
+inline void transposeMultiplyAdd(double alpha, const Matrix& A, const Vector& e, Vector& x) { x += alpha * A.transpose() * e; }
+inline void transposeMultiplyAdd(const Matrix& A, const Vector& e, Vector& x) { x += A.transpose() * e; }
+inline void transposeMultiplyAdd(double alpha, const Matrix& A, const Vector& e, SubVector x) { x += alpha * A.transpose() * e; }
+inline void insertColumn(Matrix& A, const Vector& col, size_t j) { A.col(j) = col; }
+inline void insertColumn(Matrix& A, const Vector& col, size_t i, size_t j) { A.col(j).segment(i, col.size()) = col; }
+inline void solve(Matrix& A, Matrix& B) { B = A.fullPivLu().solve(B); }
+inline Matrix inverse(const Matrix& A) { return A.inverse(); }
+#endif
+
 GTSAM_EXPORT Matrix LLt(const Matrix& A);
 
 GTSAM_EXPORT Matrix RtR(const Matrix& A);
 
 GTSAM_EXPORT Vector columnNormSquare(const Matrix &A);
-}  // namespace gtsam
+} // namespace gtsam
+
+#include <boost/serialization/nvp.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/split_free.hpp>
+
+namespace boost {
+  namespace serialization {
+
+    // split version - sends sizes ahead
+    template<class Archive>
+    void save(Archive & ar, const gtsam::Matrix & m, unsigned int /*version*/) {
+      const size_t rows = m.rows(), cols = m.cols();
+      ar << BOOST_SERIALIZATION_NVP(rows);
+      ar << BOOST_SERIALIZATION_NVP(cols);
+      ar << make_nvp("data", make_array(m.data(), m.size()));
+    }
+
+    template<class Archive>
+    void load(Archive & ar, gtsam::Matrix & m, unsigned int /*version*/) {
+      size_t rows, cols;
+      ar >> BOOST_SERIALIZATION_NVP(rows);
+      ar >> BOOST_SERIALIZATION_NVP(cols);
+      m.resize(rows, cols);
+      ar >> make_nvp("data", make_array(m.data(), m.size()));
+    }
+
+  } // namespace serialization
+} // namespace boost
+
+BOOST_SERIALIZATION_SPLIT_FREE(gtsam::Matrix);
+

@@ -17,36 +17,36 @@
  *  @author Vadim Indelman
  *  @author David Jensen
  *  @author Frank Dellaert
- *  @author Varun Agrawal
  **/
 
 #include "PreintegrationBase.h"
 #include <gtsam/base/numericalDerivative.h>
+#include <boost/make_shared.hpp>
 
 using namespace std;
 
 namespace gtsam {
 
 //------------------------------------------------------------------------------
-PreintegrationBase::PreintegrationBase(const std::shared_ptr<Params>& p,
+PreintegrationBase::PreintegrationBase(const boost::shared_ptr<Params>& p,
                                        const Bias& biasHat)
     : p_(p), biasHat_(biasHat), deltaTij_(0.0) {
 }
 
 //------------------------------------------------------------------------------
 ostream& operator<<(ostream& os, const PreintegrationBase& pim) {
-  os << "    deltaTij = " << pim.deltaTij_ << endl;
+  os << "    deltaTij " << pim.deltaTij_ << endl;
   os << "    deltaRij.ypr = (" << pim.deltaRij().ypr().transpose() << ")" << endl;
-  os << "    deltaPij = " << pim.deltaPij().transpose() << endl;
-  os << "    deltaVij = " << pim.deltaVij().transpose() << endl;
-  os << "    gyrobias = " << pim.biasHat_.gyroscope().transpose() << endl;
-  os << "    acc_bias = " << pim.biasHat_.accelerometer().transpose() << endl;
+  os << "    deltaPij " << Point3(pim.deltaPij()) << endl;
+  os << "    deltaVij " << Point3(pim.deltaVij()) << endl;
+  os << "    gyrobias " << Point3(pim.biasHat_.gyroscope()) << endl;
+  os << "    acc_bias " << Point3(pim.biasHat_.accelerometer()) << endl;
   return os;
 }
 
 //------------------------------------------------------------------------------
 void PreintegrationBase::print(const string& s) const {
-  cout << (s.empty() ? s : s + "\n") << *this << endl;
+  cout << s << *this << endl;
 }
 
 //------------------------------------------------------------------------------
@@ -115,21 +115,20 @@ void PreintegrationBase::integrateMeasurement(const Vector3& measuredAcc,
 NavState PreintegrationBase::predict(const NavState& state_i,
     const imuBias::ConstantBias& bias_i, OptionalJacobian<9, 9> H1,
     OptionalJacobian<9, 6> H2) const {
+  // TODO(frank): make sure this stuff is still correct
   Matrix96 D_biasCorrected_bias;
   Vector9 biasCorrected = biasCorrectedDelta(bias_i,
-                                             H2 ? &D_biasCorrected_bias : nullptr);
+      H2 ? &D_biasCorrected_bias : 0);
 
   // Correct for initial velocity and gravity
   Matrix9 D_delta_state, D_delta_biasCorrected;
   Vector9 xi = state_i.correctPIM(biasCorrected, deltaTij_, p().n_gravity,
-                                  p().omegaCoriolis, p().use2ndOrderCoriolis, H1 ? &D_delta_state : nullptr,
-                                  H2 ? &D_delta_biasCorrected : nullptr);
+      p().omegaCoriolis, p().use2ndOrderCoriolis, H1 ? &D_delta_state : 0,
+      H2 ? &D_delta_biasCorrected : 0);
 
   // Use retract to get back to NavState manifold
   Matrix9 D_predict_state, D_predict_delta;
-  NavState state_j = state_i.retract(xi,
-                                     H1 ? &D_predict_state : nullptr,
-                                     H2 || H2 ? &D_predict_delta : nullptr);
+  NavState state_j = state_i.retract(xi, D_predict_state, D_predict_delta);
   if (H1)
     *H1 = D_predict_state + D_predict_delta * D_delta_state;
   if (H2)
@@ -156,9 +155,9 @@ Vector9 PreintegrationBase::computeError(const NavState& state_i,
       state_j.localCoordinates(predictedState_j, H2 ? &D_error_state_j : 0,
                                H1 || H3 ? &D_error_predict : 0);
 
-  if (H1) *H1 << D_error_predict * D_predict_state_i;
+  if (H1) *H1 << D_error_predict* D_predict_state_i;
   if (H2) *H2 << D_error_state_j;
-  if (H3) *H3 << D_error_predict * D_predict_bias_i;
+  if (H3) *H3 << D_error_predict* D_predict_bias_i;
 
   return error;
 }
@@ -193,6 +192,22 @@ Vector9 PreintegrationBase::computeErrorAndJacobians(const Pose3& pose_i,
   return error;
 }
 
+//------------------------------------------------------------------------------
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+PoseVelocityBias PreintegrationBase::predict(const Pose3& pose_i,
+    const Vector3& vel_i, const imuBias::ConstantBias& bias_i,
+    const Vector3& n_gravity, const Vector3& omegaCoriolis,
+    const bool use2ndOrderCoriolis) const {
+// NOTE(frank): parameters are supposed to be constant, below is only provided for compatibility
+  boost::shared_ptr<Params> q = boost::make_shared<Params>(p());
+  q->n_gravity = n_gravity;
+  q->omegaCoriolis = omegaCoriolis;
+  q->use2ndOrderCoriolis = use2ndOrderCoriolis;
+  p_ = q;
+  return PoseVelocityBias(predict(NavState(pose_i, vel_i), bias_i), bias_i);
+}
+
+#endif
 //------------------------------------------------------------------------------
 
 }  // namespace gtsam

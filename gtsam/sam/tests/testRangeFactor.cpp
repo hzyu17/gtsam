@@ -19,16 +19,19 @@
 #include <gtsam/sam/RangeFactor.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Pose2.h>
-#include <gtsam/geometry/PinholeCamera.h>
-#include <gtsam/geometry/Cal3_S2.h>
+#include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/base/numericalDerivative.h>
+#include <gtsam/base/serializationTestHelpers.h>
 #include <gtsam/base/TestableAssertions.h>
 
 #include <CppUnitLite/TestHarness.h>
+#include <boost/bind.hpp>
 
-using namespace std::placeholders;
 using namespace std;
 using namespace gtsam;
+
+// Create a noise model for the pixel error
+static SharedNoiseModel model(noiseModel::Unit::Create(1));
 
 typedef RangeFactor<Pose2, Point2> RangeFactor2D;
 typedef RangeFactor<Pose3, Point3> RangeFactor3D;
@@ -36,39 +39,59 @@ typedef RangeFactorWithTransform<Pose2, Point2> RangeFactorWithTransform2D;
 typedef RangeFactorWithTransform<Pose3, Point3> RangeFactorWithTransform3D;
 
 // Keys are deliberately *not* in sorted order to test that case.
-namespace {
-// Create a noise model for the pixel error
-static SharedNoiseModel model(noiseModel::Unit::Create(1));
+Key poseKey(2);
+Key pointKey(1);
+double measurement(10.0);
 
-constexpr Key poseKey(2);
-constexpr Key pointKey(1);
-constexpr double measurement(10.0);
-
+/* ************************************************************************* */
 Vector factorError2D(const Pose2& pose, const Point2& point,
-                     const RangeFactor2D& factor) {
+    const RangeFactor2D& factor) {
   return factor.evaluateError(pose, point);
 }
 
+/* ************************************************************************* */
 Vector factorError3D(const Pose3& pose, const Point3& point,
-                     const RangeFactor3D& factor) {
+    const RangeFactor3D& factor) {
   return factor.evaluateError(pose, point);
 }
 
+/* ************************************************************************* */
 Vector factorErrorWithTransform2D(const Pose2& pose, const Point2& point,
-                                  const RangeFactorWithTransform2D& factor) {
+    const RangeFactorWithTransform2D& factor) {
   return factor.evaluateError(pose, point);
 }
 
+/* ************************************************************************* */
 Vector factorErrorWithTransform3D(const Pose3& pose, const Point3& point,
-                                  const RangeFactorWithTransform3D& factor) {
+    const RangeFactorWithTransform3D& factor) {
   return factor.evaluateError(pose, point);
 }
-}  // namespace
 
 /* ************************************************************************* */
 TEST( RangeFactor, Constructor) {
   RangeFactor2D factor2D(poseKey, pointKey, measurement, model);
   RangeFactor3D factor3D(poseKey, pointKey, measurement, model);
+}
+
+/* ************************************************************************* */
+// Export Noisemodels
+// See http://www.boost.org/doc/libs/1_32_0/libs/serialization/doc/special.html
+BOOST_CLASS_EXPORT(gtsam::noiseModel::Unit);
+
+/* ************************************************************************* */
+TEST(RangeFactor, Serialization2D) {
+  RangeFactor2D factor2D(poseKey, pointKey, measurement, model);
+  EXPECT(serializationTestHelpers::equalsObj(factor2D));
+  EXPECT(serializationTestHelpers::equalsXML(factor2D));
+  EXPECT(serializationTestHelpers::equalsBinary(factor2D));
+}
+
+/* ************************************************************************* */
+TEST(RangeFactor, Serialization3D) {
+  RangeFactor3D factor3D(poseKey, pointKey, measurement, model);
+  EXPECT(serializationTestHelpers::equalsObj(factor3D));
+  EXPECT(serializationTestHelpers::equalsXML(factor3D));
+  EXPECT(serializationTestHelpers::equalsBinary(factor3D));
 }
 
 /* ************************************************************************* */
@@ -79,7 +102,9 @@ TEST( RangeFactor, ConstructorWithTransform) {
 
   RangeFactorWithTransform2D factor2D(poseKey, pointKey, measurement, model,
       body_P_sensor_2D);
-  KeyVector expected {2, 1};
+  KeyVector expected;
+  expected.push_back(2);
+  expected.push_back(1);
   CHECK(factor2D.keys() == expected);
   RangeFactorWithTransform3D factor3D(poseKey, pointKey, measurement, model,
       body_P_sensor_3D);
@@ -117,6 +142,7 @@ TEST( RangeFactor, EqualsWithTransform ) {
       body_P_sensor_3D);
   CHECK(assert_equal(factor3D_1, factor3D_2));
 }
+
 /* ************************************************************************* */
 TEST( RangeFactor, Error2D ) {
   // Create a factor
@@ -127,7 +153,7 @@ TEST( RangeFactor, Error2D ) {
   Point2 point(-4.0, 11.0);
 
   // Use the factor to calculate the error
-  Vector actualError(factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}));
+  Vector actualError(factor.evaluateError(pose, point));
 
   // The expected error is ||(5.0, 9.0)|| - 10.0 = 0.295630141 meter / UnitCovariance
   Vector expectedError = (Vector(1) << 0.295630141).finished();
@@ -150,7 +176,7 @@ TEST( RangeFactor, Error2DWithTransform ) {
   Point2 point(-4.0, 11.0);
 
   // Use the factor to calculate the error
-  Vector actualError(factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}));
+  Vector actualError(factor.evaluateError(pose, point));
 
   // The expected error is ||(5.0, 9.0)|| - 10.0 = 0.295630141 meter / UnitCovariance
   Vector expectedError = (Vector(1) << 0.295630141).finished();
@@ -169,7 +195,7 @@ TEST( RangeFactor, Error3D ) {
   Point3 point(-2.0, 11.0, 1.0);
 
   // Use the factor to calculate the error
-  Vector actualError(factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}));
+  Vector actualError(factor.evaluateError(pose, point));
 
   // The expected error is ||(3.0, 9.0, 4.0)|| - 10.0 = 0.295630141 meter / UnitCovariance
   Vector expectedError = (Vector(1) << 0.295630141).finished();
@@ -193,7 +219,7 @@ TEST( RangeFactor, Error3DWithTransform ) {
   Point3 point(-2.0, 11.0, 1.0);
 
   // Use the factor to calculate the error
-  Vector actualError(factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}));
+  Vector actualError(factor.evaluateError(pose, point));
 
   // The expected error is ||(3.0, 9.0, 4.0)|| - 10.0 = 0.295630141 meter / UnitCovariance
   Vector expectedError = (Vector(1) << 0.295630141).finished();
@@ -213,14 +239,14 @@ TEST( RangeFactor, Jacobian2D ) {
 
   // Use the factor to calculate the Jacobians
   Matrix H1Actual, H2Actual;
-  factor.evaluateError(pose, point, &H1Actual, &H2Actual);
+  factor.evaluateError(pose, point, H1Actual, H2Actual);
 
   // Use numerical derivatives to calculate the Jacobians
   Matrix H1Expected, H2Expected;
   H1Expected = numericalDerivative11<Vector, Pose2>(
-      std::bind(&factorError2D, std::placeholders::_1, point, factor), pose);
+      boost::bind(&factorError2D, _1, point, factor), pose);
   H2Expected = numericalDerivative11<Vector, Point2>(
-      std::bind(&factorError2D, pose, std::placeholders::_1, factor), point);
+      boost::bind(&factorError2D, pose, _1, factor), point);
 
   // Verify the Jacobians are correct
   CHECK(assert_equal(H1Expected, H1Actual, 1e-9));
@@ -241,17 +267,15 @@ TEST( RangeFactor, Jacobian2DWithTransform ) {
   Point2 point(-4.0, 11.0);
 
   // Use the factor to calculate the Jacobians
-  std::vector<Matrix> actualHs(2);
-  factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}, actualHs); 
-  const Matrix& H1Actual = actualHs.at(0);
-  const Matrix& H2Actual = actualHs.at(1);
+  Matrix H1Actual, H2Actual;
+  factor.evaluateError(pose, point, H1Actual, H2Actual);
 
   // Use numerical derivatives to calculate the Jacobians
   Matrix H1Expected, H2Expected;
   H1Expected = numericalDerivative11<Vector, Pose2>(
-      std::bind(&factorErrorWithTransform2D, std::placeholders::_1, point, factor), pose);
+      boost::bind(&factorErrorWithTransform2D, _1, point, factor), pose);
   H2Expected = numericalDerivative11<Vector, Point2>(
-      std::bind(&factorErrorWithTransform2D, pose, std::placeholders::_1, factor), point);
+      boost::bind(&factorErrorWithTransform2D, pose, _1, factor), point);
 
   // Verify the Jacobians are correct
   CHECK(assert_equal(H1Expected, H1Actual, 1e-9));
@@ -268,17 +292,15 @@ TEST( RangeFactor, Jacobian3D ) {
   Point3 point(-2.0, 11.0, 1.0);
 
   // Use the factor to calculate the Jacobians
-  std::vector<Matrix> actualHs(2);
-  factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}, actualHs); 
-  const Matrix& H1Actual = actualHs.at(0);
-  const Matrix& H2Actual = actualHs.at(1);
+  Matrix H1Actual, H2Actual;
+  factor.evaluateError(pose, point, H1Actual, H2Actual);
 
   // Use numerical derivatives to calculate the Jacobians
   Matrix H1Expected, H2Expected;
   H1Expected = numericalDerivative11<Vector, Pose3>(
-      std::bind(&factorError3D, std::placeholders::_1, point, factor), pose);
+      boost::bind(&factorError3D, _1, point, factor), pose);
   H2Expected = numericalDerivative11<Vector, Point3>(
-      std::bind(&factorError3D, pose, std::placeholders::_1, factor), point);
+      boost::bind(&factorError3D, pose, _1, factor), point);
 
   // Verify the Jacobians are correct
   CHECK(assert_equal(H1Expected, H1Actual, 1e-9));
@@ -300,17 +322,15 @@ TEST( RangeFactor, Jacobian3DWithTransform ) {
   Point3 point(-2.0, 11.0, 1.0);
 
   // Use the factor to calculate the Jacobians
-  std::vector<Matrix> actualHs(2);
-  factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}, actualHs); 
-  const Matrix& H1Actual = actualHs.at(0);
-  const Matrix& H2Actual = actualHs.at(1);
+  Matrix H1Actual, H2Actual;
+  factor.evaluateError(pose, point, H1Actual, H2Actual);
 
   // Use numerical derivatives to calculate the Jacobians
   Matrix H1Expected, H2Expected;
   H1Expected = numericalDerivative11<Vector, Pose3>(
-      std::bind(&factorErrorWithTransform3D, std::placeholders::_1, point, factor), pose);
+      boost::bind(&factorErrorWithTransform3D, _1, point, factor), pose);
   H2Expected = numericalDerivative11<Vector, Point3>(
-      std::bind(&factorErrorWithTransform3D, pose, std::placeholders::_1, factor), point);
+      boost::bind(&factorErrorWithTransform3D, pose, _1, factor), point);
 
   // Verify the Jacobians are correct
   CHECK(assert_equal(H1Expected, H1Actual, 1e-9));
@@ -318,53 +338,34 @@ TEST( RangeFactor, Jacobian3DWithTransform ) {
 }
 
 /* ************************************************************************* */
-// Do a test with Point2
-TEST(RangeFactor, Point2) {
-  // Create a factor
-  RangeFactor<Point2> factor(11, 22, measurement, model);
-
-  // Set the linearization point
-  Point2 p11(1.0, 2.0), p22(-4.0, 11.0);
-
-  // The expected error is ||(5.0, 9.0)|| - 10.0 = 0.295630141 meter
-  Vector expectedError = (Vector(1) << 0.295630141).finished();
-
-  // Verify we get the expected error
-  Values values {{11, genericValue(p11)}, {22, genericValue(p22)}};
-  CHECK(assert_equal(expectedError, factor.unwhitenedError(values), 1e-9));
-}
-
-/* ************************************************************************* */
 // Do a test with Point3
 TEST(RangeFactor, Point3) {
   // Create a factor
-  RangeFactor<Point3> factor(11, 22, measurement, model);
+  RangeFactor<Point3> factor(poseKey, pointKey, measurement, model);
 
   // Set the linearization point
-  Point3 p11(1.0, 2.0, 0.0), p22(-4.0, 11.0, 0);
+  Point3 pose(1.0, 2.0, 00);
+  Point3 point(-4.0, 11.0, 0);
 
-  // The expected error is ||(5.0, 9.0)|| - 10.0 = 0.295630141 meter
+  // The expected error is ||(5.0, 9.0)|| - 10.0 = 0.295630141 meter / UnitCovariance
   Vector expectedError = (Vector(1) << 0.295630141).finished();
 
   // Verify we get the expected error
-  Values values {{11, genericValue(p11)}, {22, genericValue(p22)}};
-  CHECK(assert_equal(expectedError, factor.unwhitenedError(values), 1e-9));
+  CHECK(assert_equal(expectedError, factor.evaluateError(pose, point), 1e-9));
 }
 
 /* ************************************************************************* */
-// Do tests with PinholeCamera<Cal3_S2>
+// Do tests with SimpleCamera
 TEST( RangeFactor, Camera) {
-  using Camera = PinholeCamera<Cal3_S2>;
-
-  RangeFactor<Camera, Point3> factor1(poseKey, pointKey, measurement, model);
-  RangeFactor<Camera, Pose3>  factor2(poseKey, pointKey, measurement, model);
-  RangeFactor<Camera, Camera> factor3(poseKey, pointKey, measurement, model);
+  RangeFactor<SimpleCamera,Point3> factor1(poseKey, pointKey, measurement, model);
+  RangeFactor<SimpleCamera,Pose3> factor2(poseKey, pointKey, measurement, model);
+  RangeFactor<SimpleCamera,SimpleCamera> factor3(poseKey, pointKey, measurement, model);
 }
 
 /* ************************************************************************* */
 // Do a test with non GTSAM types
 
-namespace gtsam {
+namespace gtsam{
 template <>
 struct Range<Vector4, Vector4> {
   typedef double result_type;
@@ -374,7 +375,7 @@ struct Range<Vector4, Vector4> {
     // derivatives not implemented
   }
 };
-}  // namespace gtsam
+}
 
 TEST(RangeFactor, NonGTSAM) {
   // Create a factor
@@ -391,7 +392,7 @@ TEST(RangeFactor, NonGTSAM) {
   Vector expectedError = (Vector(1) << 0.295630141).finished();
 
   // Verify we get the expected error
-  CHECK(assert_equal(expectedError, factor.unwhitenedError({{poseKey, genericValue(pose)}, {pointKey, genericValue(point)}}), 1e-9));
+  CHECK(assert_equal(expectedError, factor.evaluateError(pose, point), 1e-9));
 }
 
 /* ************************************************************************* */

@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include "GeographicLib/Geocentric.hpp"
@@ -33,7 +33,7 @@ Geocentric::Geocentric(void)
     try
     {
         m_pGeocentric = new GeographicLib::Geocentric(
-            GeographicLib::Geocentric::WGS84() );
+            GeographicLib::Geocentric::WGS84 );
     }
     catch (std::bad_alloc)
     {

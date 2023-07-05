@@ -34,9 +34,9 @@ TEST(Point2 , Constructor) {
 
 //******************************************************************************
 TEST(Double , Concept) {
-  GTSAM_CONCEPT_ASSERT(IsGroup<double>);
-  GTSAM_CONCEPT_ASSERT(IsManifold<double>);
-  GTSAM_CONCEPT_ASSERT(IsVectorSpace<double>);
+  BOOST_CONCEPT_ASSERT((IsGroup<double>));
+  BOOST_CONCEPT_ASSERT((IsManifold<double>));
+  BOOST_CONCEPT_ASSERT((IsVectorSpace<double>));
 }
 
 //******************************************************************************
@@ -48,9 +48,9 @@ TEST(Double , Invariants) {
 
 //******************************************************************************
 TEST(Point2 , Concept) {
-  GTSAM_CONCEPT_ASSERT(IsGroup<Point2>);
-  GTSAM_CONCEPT_ASSERT(IsManifold<Point2>);
-  GTSAM_CONCEPT_ASSERT(IsVectorSpace<Point2>);
+  BOOST_CONCEPT_ASSERT((IsGroup<Point2>));
+  BOOST_CONCEPT_ASSERT((IsManifold<Point2>));
+  BOOST_CONCEPT_ASSERT((IsVectorSpace<Point2>));
 }
 
 //******************************************************************************
@@ -236,6 +236,16 @@ TEST( Point2, circleCircleIntersection) {
   EXPECT(assert_equal(Point2(5.9, 1+offset), offset2.back(), 1e-6));
 
 }
+
+/* ************************************************************************* */
+#ifndef GTSAM_TYPEDEF_POINTS_TO_VECTORS
+TEST( Point2, stream) {
+  Point2 p(1, 2);
+  std::ostringstream os;
+  os << p;
+  EXPECT(os.str() == "(1, 2)");
+}
+#endif
 
 /* ************************************************************************* */
 int main () {

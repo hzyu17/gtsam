@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -47,7 +47,7 @@ bool ConcurrentBatchSmoother::equals(const ConcurrentSmoother& rhs, double tol) 
 
 /* ************************************************************************* */
 ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::update(const NonlinearFactorGraph& newFactors, const Values& newTheta,
-    const std::optional< std::vector<size_t> >& removeFactorIndices) {
+    const boost::optional< std::vector<size_t> >& removeFactorIndices) {
 
   gttic(update);
 
@@ -61,8 +61,8 @@ ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::update(const NonlinearF
     theta_.insert(newTheta);
 
     // Add new variables to the end of the ordering
-    for(const auto key: newTheta.keys()) {
-      ordering_.push_back(key);
+    for(const Values::ConstKeyValuePair& key_value: newTheta) {
+      ordering_.push_back(key_value.key);
     }
 
     // Augment Delta
@@ -135,30 +135,26 @@ void ConcurrentBatchSmoother::synchronize(const NonlinearFactorGraph& smootherFa
   removeFactors(filterSummarizationSlots_);
 
   // Insert new linpoints into the values, augment the ordering, and store new dims to augment delta
-  for(const auto key: smootherValues.keys()) {
-    if(!theta_.exists(key)) {
-      // If this a new key for theta_, also add to ordering and delta.
-      const auto& value = smootherValues.at(key);
-      delta_.insert(key, Vector::Zero(value.dim()));
-      theta_.insert(key, value);
-      ordering_.push_back(key);
+  for(const Values::ConstKeyValuePair& key_value: smootherValues) {
+    std::pair<Values::iterator, bool> iter_inserted = theta_.tryInsert(key_value.key, key_value.value);
+    if(iter_inserted.second) {
+      // If the insert succeeded
+      ordering_.push_back(key_value.key);
+      delta_.insert(key_value.key, Vector::Zero(key_value.value.dim()));
     } else {
-      // If the key already existed in theta_, just update.
-      const auto& value = smootherValues.at(key);
-      theta_.update(key, value);
+      // If the element already existed in theta_
+      iter_inserted.first->value = key_value.value;
     }
   }
-  for(const auto key: separatorValues.keys()) {
-    if(!theta_.exists(key)) {
-      // If this a new key for theta_, also add to ordering and delta.
-      const auto& value = separatorValues.at(key);
-      delta_.insert(key, Vector::Zero(value.dim()));
-      theta_.insert(key, value);
-      ordering_.push_back(key);
+  for(const Values::ConstKeyValuePair& key_value: separatorValues) {
+    std::pair<Values::iterator, bool> iter_inserted = theta_.tryInsert(key_value.key, key_value.value);
+    if(iter_inserted.second) {
+      // If the insert succeeded
+      ordering_.push_back(key_value.key);
+      delta_.insert(key_value.key, Vector::Zero(key_value.value.dim()));
     } else {
-      // If the key already existed in theta_, just update.
-      const auto& value = separatorValues.at(key);
-      theta_.update(key, value);
+      // If the element already existed in theta_
+      iter_inserted.first->value = key_value.value;
     }
   }
 
@@ -235,7 +231,7 @@ void ConcurrentBatchSmoother::reorder() {
   variableIndex_ = VariableIndex(factors_);
 
   KeyVector separatorKeys = separatorValues_.keys();
-  ordering_ = Ordering::ColamdConstrainedLast(variableIndex_, KeyVector(separatorKeys.begin(), separatorKeys.end()));
+  ordering_ = Ordering::ColamdConstrainedLast(variableIndex_, std::vector<Key>(separatorKeys.begin(), separatorKeys.end()));
 
 }
 
@@ -274,7 +270,7 @@ ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::optimize() {
       while(true) {
         if (lmVerbosity >= LevenbergMarquardtParams::TRYLAMBDA)
           std::cout << "trying lambda = " << lambda << std::endl;
-
+        
         // Add prior factors at the current solution
         gttic(damp);
         GaussianFactorGraph dampedFactorGraph(linearFactorGraph);
@@ -291,7 +287,7 @@ ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::optimize() {
           }
         }
         gttoc(damp);
-        if (lmVerbosity >= LevenbergMarquardtParams::DAMPED)
+        if (lmVerbosity >= LevenbergMarquardtParams::DAMPED) 
           dampedFactorGraph.print("damped");
         result.lambdas++;
 
@@ -302,9 +298,9 @@ ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::optimize() {
         evalpoint = theta_.retract(newDelta);
         gttoc(solve);
 
-        if (lmVerbosity >= LevenbergMarquardtParams::TRYLAMBDA)
+        if (lmVerbosity >= LevenbergMarquardtParams::TRYLAMBDA) 
           std::cout << "linear delta norm = " << newDelta.norm() << std::endl;
-        if (lmVerbosity >= LevenbergMarquardtParams::TRYDELTA)
+        if (lmVerbosity >= LevenbergMarquardtParams::TRYDELTA) 
           newDelta.print("delta");
 
         // Evaluate the new error
@@ -312,9 +308,9 @@ ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::optimize() {
         double error = factors_.error(evalpoint);
         gttoc(compute_error);
 
-        if (lmVerbosity >= LevenbergMarquardtParams::TRYLAMBDA)
+        if (lmVerbosity >= LevenbergMarquardtParams::TRYLAMBDA) 
           std::cout << "next error = " << error << std::endl;
-
+        
         if(error < result.error) {
           // Keep this change
           // Update the error value
@@ -326,8 +322,8 @@ ConcurrentBatchSmoother::Result ConcurrentBatchSmoother::optimize() {
           // Put the linearization points and deltas back for specific variables
           if(separatorValues_.size() > 0) {
             theta_.update(separatorValues_);
-            for(const auto key: separatorValues_.keys()) {
-              delta_.at(key) = newDelta.at(key);
+            for(const Values::ConstKeyValuePair& key_value: separatorValues_) {
+              delta_.at(key_value.key) = newDelta.at(key_value.key);
             }
           }
 
@@ -375,7 +371,10 @@ void ConcurrentBatchSmoother::updateSmootherSummarization() {
   }
 
   // Get the set of separator keys
-  const KeySet separatorKeys = separatorValues_.keySet();
+  gtsam::KeySet separatorKeys;
+  for(const Values::ConstKeyValuePair& key_value: separatorValues_) {
+    separatorKeys.insert(key_value.key);
+  }
 
   // Calculate the marginal factors on the separator
   smootherSummarization_ = internal::calculateMarginalFactors(graph, theta_, separatorKeys, parameters_.getEliminationFunction());
@@ -385,7 +384,7 @@ void ConcurrentBatchSmoother::updateSmootherSummarization() {
 void ConcurrentBatchSmoother::PrintNonlinearFactor(const NonlinearFactor::shared_ptr& factor, const std::string& indent, const KeyFormatter& keyFormatter) {
   std::cout << indent;
   if(factor) {
-    if(std::dynamic_pointer_cast<LinearContainerFactor>(factor)) {
+    if(boost::dynamic_pointer_cast<LinearContainerFactor>(factor)) {
       std::cout << "l( ";
     } else {
       std::cout << "f( ";
@@ -395,7 +394,7 @@ void ConcurrentBatchSmoother::PrintNonlinearFactor(const NonlinearFactor::shared
     }
     std::cout << ")" << std::endl;
   } else {
-    std::cout << "{ nullptr }" << std::endl;
+    std::cout << "{ NULL }" << std::endl;
   }
 }
 
@@ -409,7 +408,7 @@ void ConcurrentBatchSmoother::PrintLinearFactor(const GaussianFactor::shared_ptr
     }
     std::cout << ")" << std::endl;
   } else {
-    std::cout << "{ nullptr }" << std::endl;
+    std::cout << "{ NULL }" << std::endl;
   }
 }
 

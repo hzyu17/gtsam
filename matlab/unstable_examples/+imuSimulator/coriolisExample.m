@@ -119,7 +119,7 @@ h = figure;
 % Solver object
 isamParams = ISAM2Params;
 isamParams.setFactorization('CHOLESKY');
-isamParams.relinearizeSkip = 10;
+isamParams.setRelinearizeSkip(10);
 isam = gtsam.ISAM2(isamParams);
 newFactors = NonlinearFactorGraph;
 newValues = Values;
@@ -175,9 +175,9 @@ for i = 1:length(times)
         % known initial conditions
         currentPoseEstimate = currentPoseFixedGT;
         if navFrameRotating == 1
-            currentVelocityEstimate = currentVelocityRotatingGT;
+            currentVelocityEstimate = LieVector(currentVelocityRotatingGT);
         else
-            currentVelocityEstimate = currentVelocityFixedGT;
+            currentVelocityEstimate = LieVector(currentVelocityFixedGT);
         end
         
         % Set Priors
@@ -186,17 +186,17 @@ for i = 1:length(times)
         newValues.insert(currentBiasKey, zeroBias);
         % Initial values, same for IMU types 1 and 2
         newFactors.add(PriorFactorPose3(currentPoseKey, currentPoseEstimate, sigma_init_x));
-        newFactors.add(PriorFactorVector(currentVelKey, currentVelocityEstimate, sigma_init_v));
+        newFactors.add(PriorFactorLieVector(currentVelKey, currentVelocityEstimate, sigma_init_v));
         newFactors.add(PriorFactorConstantBias(currentBiasKey, zeroBias, sigma_init_b));
         
         % Store data
-        positionsInFixedGT(:,1) = currentPoseFixedGT.translation;
+        positionsInFixedGT(:,1) = currentPoseFixedGT.translation.vector;
         velocityInFixedGT(:,1) = currentVelocityFixedGT;
-        positionsInRotatingGT(:,1) = currentPoseRotatingGT.translation;
-        %velocityInRotatingGT(:,1) = currentPoseRotatingGT.velocity;
-        positionsEstimates(:,i) = currentPoseEstimate.translation;
-        velocitiesEstimates(:,i) = currentVelocityEstimate;
-        currentRotatingFrameForPlot(1).p = currentRotatingFrame.translation;
+        positionsInRotatingGT(:,1) = currentPoseRotatingGT.translation.vector;
+        %velocityInRotatingGT(:,1) = currentPoseRotatingGT.velocity.vector;
+        positionsEstimates(:,i) = currentPoseEstimate.translation.vector;
+        velocitiesEstimates(:,i) = currentVelocityEstimate.vector;
+        currentRotatingFrameForPlot(1).p = currentRotatingFrame.translation.vector;
         currentRotatingFrameForPlot(1).R = currentRotatingFrame.rotation.matrix;
     else
         
@@ -204,18 +204,18 @@ for i = 1:length(times)
         % Update the position and velocity
         % x_t = x_0 + v_0*dt + 1/2*a_0*dt^2
         % v_t = v_0 + a_0*dt
-        currentPositionFixedGT = Point3(currentPoseFixedGT.translation ...
+        currentPositionFixedGT = Point3(currentPoseFixedGT.translation.vector ...
             + currentVelocityFixedGT * deltaT + 0.5 * accelFixed * deltaT * deltaT);
         currentVelocityFixedGT = currentVelocityFixedGT + accelFixed * deltaT;
         
         currentPoseFixedGT = Pose3(Rot3, currentPositionFixedGT); % constant orientation
         
         % Rotate pose in fixed frame to get pose in rotating frame
-        previousPositionRotatingGT = currentPoseRotatingGT.translation;
+        previousPositionRotatingGT = currentPoseRotatingGT.translation.vector;
         currentRotatingFrame = currentRotatingFrame.compose(changePoseRotatingFrame);
         inverseCurrentRotatingFrame = (currentRotatingFrame.inverse);
         currentPoseRotatingGT = inverseCurrentRotatingFrame.compose(currentPoseFixedGT);
-        currentPositionRotatingGT = currentPoseRotatingGT.translation;
+        currentPositionRotatingGT = currentPoseRotatingGT.translation.vector;
         
         % Get velocity in rotating frame by treating it like a position and using compose 
         % Maybe Luca knows a better way to do this within GTSAM. 
@@ -230,11 +230,11 @@ for i = 1:length(times)
         %    - 0.5 * accelFixed * deltaT * deltaT) / deltaT + accelFixed * deltaT;
         
         % Store GT (ground truth) poses
-        positionsInFixedGT(:,i) = currentPoseFixedGT.translation;
+        positionsInFixedGT(:,i) = currentPoseFixedGT.translation.vector;
         velocityInFixedGT(:,i) = currentVelocityFixedGT;
-        positionsInRotatingGT(:,i) = currentPoseRotatingGT.translation;
+        positionsInRotatingGT(:,i) = currentPoseRotatingGT.translation.vector;
         velocityInRotatingGT(:,i) = currentVelocityRotatingGT;
-        currentRotatingFrameForPlot(i).p = currentRotatingFrame.translation;
+        currentRotatingFrameForPlot(i).p = currentRotatingFrame.translation.vector;
         currentRotatingFrameForPlot(i).R = currentRotatingFrame.rotation.matrix;
         
         %% Estimate trajectory in rotating frame using GTSAM (ground truth measurements)
@@ -303,9 +303,9 @@ for i = 1:length(times)
             currentVelocityEstimate = isam.calculateEstimate(currentVelKey);
             currentBias = isam.calculateEstimate(currentBiasKey);
             
-            positionsEstimates(:,i) = currentPoseEstimate.translation;
-            velocitiesEstimates(:,i) = currentVelocityEstimate;
-            biasEstimates(:,i) = currentBias;
+            positionsEstimates(:,i) = currentPoseEstimate.translation.vector;
+            velocitiesEstimates(:,i) = currentVelocityEstimate.vector;
+            biasEstimates(:,i) = currentBias.vector;
             
             % In matrix form: R_error = R_gt'*R_estimate
             % Perform Logmap on the rotation matrix to get a vector

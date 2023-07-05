@@ -25,24 +25,21 @@ namespace gtsam {
 
 /**
  * Binary factor between two Pose3 variables induced by an EssentialMatrix measurement
- * @ingroup slam
+ * @addtogroup SLAM
  */
-class GTSAM_EXPORT EssentialMatrixConstraint: public NoiseModelFactorN<Pose3, Pose3> {
+class GTSAM_EXPORT EssentialMatrixConstraint: public NoiseModelFactor2<Pose3, Pose3> {
 
 private:
 
   typedef EssentialMatrixConstraint This;
-  typedef NoiseModelFactorN<Pose3, Pose3> Base;
+  typedef NoiseModelFactor2<Pose3, Pose3> Base;
 
   EssentialMatrix measuredE_; /** The measurement is an essential matrix */
 
 public:
 
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
-
   // shorthand for a smart pointer to a factor
-  typedef std::shared_ptr<EssentialMatrixConstraint> shared_ptr;
+  typedef boost::shared_ptr<EssentialMatrixConstraint> shared_ptr;
 
   /** default constructor - only use for serialization */
   EssentialMatrixConstraint() {
@@ -60,52 +57,52 @@ public:
       Base(model, key1, key2), measuredE_(measuredE) {
   }
 
-  ~EssentialMatrixConstraint() override {
+  virtual ~EssentialMatrixConstraint() {
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
   /** implement functions needed for Testable */
 
   /** print */
-  void print(const std::string& s = "",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s = "",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /** equals */
-  bool equals(const NonlinearFactor& expected, double tol = 1e-9) const override;
+  virtual bool equals(const NonlinearFactor& expected, double tol = 1e-9) const;
 
   /** implement functions needed to derive from Factor */
 
   /** vector of errors */
-  Vector evaluateError(const Pose3& p1, const Pose3& p2,
-      OptionalMatrixType Hp1, OptionalMatrixType Hp2) const override;
+  virtual Vector evaluateError(const Pose3& p1, const Pose3& p2,
+      boost::optional<Matrix&> Hp1 = boost::none, //
+      boost::optional<Matrix&> Hp2 = boost::none) const;
 
   /** return the measured */
   const EssentialMatrix& measured() const {
     return measuredE_;
   }
 
+  /** number of variables attached to this factor */
+  std::size_t size() const {
+    return 2;
+  }
+
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-    // NoiseModelFactor2 instead of NoiseModelFactorN for backward compatibility
     ar
         & boost::serialization::make_nvp("NoiseModelFactor2",
             boost::serialization::base_object<Base>(*this));
     ar & BOOST_SERIALIZATION_NVP(measuredE_);
   }
-#endif
-
-public:
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
 };
 // \class EssentialMatrixConstraint
 

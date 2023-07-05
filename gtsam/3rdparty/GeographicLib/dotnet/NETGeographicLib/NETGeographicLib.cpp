@@ -6,11 +6,10 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include "GeographicLib/Config.h"
-#include "GeographicLib/Utility.hpp"
 #include "NETGeographicLib.h"
 
 using namespace System::Runtime::InteropServices;
@@ -47,11 +46,4 @@ int VersionInfo::MinorVersion()
 int VersionInfo::Patch()
 {
     return GEOGRAPHICLIB_VERSION_PATCH;
-}
-
-//*****************************************************************************
-double Utility::FractionalYear( System::String^ s )
-{
-    return GeographicLib::Utility::fractionalyear<double>(
-        StringConvert::ManagedToUnmanaged( s ) );
 }

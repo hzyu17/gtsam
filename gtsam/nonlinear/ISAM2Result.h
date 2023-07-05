@@ -24,19 +24,23 @@
 
 #include <gtsam/linear/GaussianBayesTree.h>
 #include <gtsam/nonlinear/DoglegOptimizerImpl.h>
-#include <gtsam/nonlinear/ISAM2Params.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/ISAM2Params.h>
+
+#include <boost/variant.hpp>
 
 namespace gtsam {
 
+typedef FastVector<size_t> FactorIndices;
+
 /**
- * @ingroup isam2
+ * @addtogroup ISAM2
  * This struct is returned from ISAM2::update() and contains information about
  * the update that is useful for determining whether the solution is
  * converging, and about how much work was required for the update.  See member
  * variables for details and information about each entry.
  */
-struct ISAM2Result {
+struct GTSAM_EXPORT ISAM2Result {
   /** The nonlinear error of all of the factors, \a including new factors and
    * variables added during the current call to ISAM2::update().  This error is
    * calculated using the following variable values:
@@ -49,7 +53,7 @@ struct ISAM2Result {
    * ISAM2Params::evaluateNonlinearError is set to \c true, because there is
    * some cost to this computation.
    */
-  std::optional<double> errorBefore;
+  boost::optional<double> errorBefore;
 
   /** The nonlinear error of all of the factors computed after the current
    * update, meaning that variables above the relinearization threshold
@@ -61,7 +65,7 @@ struct ISAM2Result {
    * ISAM2Params::evaluateNonlinearError is set to \c true, because there is
    * some cost to this computation.
    */
-  std::optional<double> errorAfter;
+  boost::optional<double> errorAfter;
 
   /** The number of variables that were relinearized because their linear
    * deltas exceeded the reslinearization threshold
@@ -94,22 +98,7 @@ struct ISAM2Result {
    */
   FactorIndices newFactorsIndices;
 
-  /** Unused keys, and indices for unused keys,
-   * i.e., keys that are empty now and do not appear in the new factors.
-   */
-  KeySet unusedKeys;
-
-  /** keys for variables that were observed, i.e., not unused. */
-  KeyVector observedKeys;
-
-  /** Keys of variables that had factors removed. */
-  KeySet keysWithRemovedFactors;
-
-  /** All keys that were marked during the update process. */
-  KeySet markedKeys;
-
-  /**
-   * A struct holding detailed results, which must be enabled with
+  /** A struct holding detailed results, which must be enabled with
    * ISAM2Params::enableDetailedResults.
    */
   struct DetailedResults {
@@ -145,30 +134,15 @@ struct ISAM2Result {
             inRootClique(false) {}
     };
 
-    using StatusMap = FastMap<Key, VariableStatus>;
-
-    /// The status of each variable during this update, see VariableStatus.
-    StatusMap variableStatus;
+    /** The status of each variable during this update, see VariableStatus.
+     */
+    FastMap<Key, VariableStatus> variableStatus;
   };
 
   /** Detailed results, if enabled by ISAM2Params::enableDetailedResults.  See
    * Detail for information about the results data stored here. */
-  std::optional<DetailedResults> detail;
+  boost::optional<DetailedResults> detail;
 
-  explicit ISAM2Result(bool enableDetailedResults = false) {
-    if (enableDetailedResults) detail = DetailedResults();
-  }
-
-  /// Return pointer to detail, 0 if no detail requested
-  DetailedResults* details() {
-    if (detail.has_value()) {
-      return &(*detail);
-    } else {
-      return nullptr;
-    }
-  }
-
-  /// Print results
   void print(const std::string str = "") const {
     using std::cout;
     cout << str << "  Reelimintated: " << variablesReeliminated
@@ -179,10 +153,7 @@ struct ISAM2Result {
   /** Getters and Setters */
   size_t getVariablesRelinearized() const { return variablesRelinearized; }
   size_t getVariablesReeliminated() const { return variablesReeliminated; }
-  FactorIndices getNewFactorsIndices() const { return newFactorsIndices; }
   size_t getCliques() const { return cliques; }
-  double getErrorBefore() const { return errorBefore ? *errorBefore : std::nan(""); }
-  double getErrorAfter() const { return errorAfter ? *errorAfter : std::nan(""); }
 };
 
 }  // namespace gtsam

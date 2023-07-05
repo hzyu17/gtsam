@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -18,8 +18,8 @@
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
-#include <gtsam/geometry/PinholeCamera.h>
-#include <gtsam/geometry/Cal3_S2.h>
+#include <gtsam/geometry/SimpleCamera.h>
+#include <boost/make_shared.hpp>
 
 using namespace gtsam;
 using namespace gtsam::noiseModel;
@@ -29,8 +29,8 @@ using symbol_shorthand::X;
  * Unary factor on the unknown pose, resulting from meauring the projection of
  * a known 3D point in the image
  */
-class ResectioningFactor: public NoiseModelFactorN<Pose3> {
-  typedef NoiseModelFactorN<Pose3> Base;
+class ResectioningFactor: public NoiseModelFactor1<Pose3> {
+  typedef NoiseModelFactor1<Pose3> Base;
 
   Cal3_S2::shared_ptr K_; ///< camera's intrinsic parameters
   Point3 P_;              ///< 3D point on the calibration rig
@@ -45,9 +45,10 @@ public:
   }
 
   /// evaluate the error
-  Vector evaluateError(const Pose3& pose, OptionalMatrixType H) const override {
-    PinholeCamera<Cal3_S2> camera(pose, *K_);
-    return camera.project(P_, H, OptionalNone, OptionalNone) - p_;
+  virtual Vector evaluateError(const Pose3& pose, boost::optional<Matrix&> H =
+      boost::none) const {
+    SimpleCamera camera(pose, *K_);
+    return camera.project(P_, H, boost::none, boost::none) - p_;
   }
 };
 
@@ -69,7 +70,7 @@ int main(int argc, char* argv[]) {
   /* 2. add factors to the graph */
   // add measurement factors
   SharedDiagonal measurementNoise = Diagonal::Sigmas(Vector2(0.5, 0.5));
-  std::shared_ptr<ResectioningFactor> factor;
+  boost::shared_ptr<ResectioningFactor> factor;
   graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,
           Point2(55, 45), Point3(10, 10, 0));
   graph.emplace_shared<ResectioningFactor>(measurementNoise, X(1), calib,

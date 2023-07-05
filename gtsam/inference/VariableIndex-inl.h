@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -24,7 +24,8 @@ namespace gtsam {
 
 /* ************************************************************************* */
 template<class FG>
-void VariableIndex::augment(const FG& factors, const FactorIndices* newFactorIndices) {
+void VariableIndex::augment(const FG& factors,
+    boost::optional<const FastVector<size_t>&> newFactorIndices) {
   gttic(VariableIndex_augment);
 
   // Augment index for each factor
@@ -66,8 +67,8 @@ void VariableIndex::remove(ITERATOR firstFactor, ITERATOR lastFactor,
           "Internal error, requested inconsistent number of factor indices and factors in VariableIndex::remove");
     if (factors[i]) {
       for(Key j: *factors[i]) {
-        FactorIndices& factorEntries = internalAt(j);
-        auto entry = std::find(factorEntries.begin(),
+        Factors& factorEntries = internalAt(j);
+        Factors::iterator entry = std::find(factorEntries.begin(),
             factorEntries.end(), *factorIndex);
         if (entry == factorEntries.end())
           throw std::invalid_argument(

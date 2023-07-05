@@ -16,7 +16,7 @@
  * @date     1/24/16
  */
 
-#pragma once
+#pragma once 
 
 namespace gtsam {
 
@@ -25,13 +25,16 @@ class InfeasibleOrUnboundedProblem: public ThreadsafeException<
 public:
   InfeasibleOrUnboundedProblem() {
   }
-  ~InfeasibleOrUnboundedProblem() noexcept override {
+  virtual ~InfeasibleOrUnboundedProblem() throw () {
   }
 
-  const char* what() const noexcept override {
-    if (description_->empty())
+  virtual const char* what() const throw () {
+    if (description_.empty())
       description_ = "The problem is either infeasible or unbounded.\n";
-    return description_->c_str();
+    return description_.c_str();
   }
+
+private:
+  mutable std::string description_;
 };
 }

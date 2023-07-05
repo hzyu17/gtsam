@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -21,6 +21,8 @@
 #include <gtsam/base/Testable.h>
 #include <gtsam/base/Manifold.h>
 
+#include <boost/bind.hpp>
+
 #include <limits>
 #include <iostream>
 #include <cmath>
@@ -40,13 +42,10 @@ namespace gtsam {
  * \nosubgrouping
  */
 template<class VALUE>
-class NonlinearEquality: public NoiseModelFactorN<VALUE> {
+class NonlinearEquality: public NoiseModelFactor1<VALUE> {
 
 public:
   typedef VALUE T;
-
-  // Provide access to the Matrix& version of evaluateError:
-  using NoiseModelFactor1<VALUE>::evaluateError;
 
 private:
 
@@ -60,22 +59,25 @@ private:
   double error_gain_;
 
   // typedef to this class
-  using This = NonlinearEquality<VALUE>;
+  typedef NonlinearEquality<VALUE> This;
 
   // typedef to base class
-  using Base = NoiseModelFactorN<VALUE>;
+  typedef NoiseModelFactor1<VALUE> Base;
 
 public:
 
-  /// Function that compares two values.
-  using CompareFunction = std::function<bool(const T&, const T&)>;
+  /**
+   * Function that compares two values
+   */
+  typedef boost::function<bool(const T&, const T&)> CompareFunction;
   CompareFunction compare_;
+//  bool (*compare_)(const T& a, const T& b);
 
-  /// Default constructor - only for serialization
+  /** default constructor - only for serialization */
   NonlinearEquality() {
   }
 
-  ~NonlinearEquality() override {
+  virtual ~NonlinearEquality() {
   }
 
   /// @name Standard Constructors
@@ -85,8 +87,7 @@ public:
    * Constructor - forces exact evaluation
    */
   NonlinearEquality(Key j, const T& feasible,
-      const CompareFunction &_compare = std::bind(traits<T>::Equals,
-          std::placeholders::_1, std::placeholders::_2, 1e-9)) :
+      const CompareFunction &_compare = boost::bind(traits<T>::Equals,_1,_2,1e-9)) :
       Base(noiseModel::Constrained::All(traits<T>::GetDimension(feasible)),
           j), feasible_(feasible), allow_error_(false), error_gain_(0.0), //
       compare_(_compare) {
@@ -96,8 +97,7 @@ public:
    * Constructor - allows inexact evaluation
    */
   NonlinearEquality(Key j, const T& feasible, double error_gain,
-      const CompareFunction &_compare = std::bind(traits<T>::Equals,
-          std::placeholders::_1, std::placeholders::_2, 1e-9)) :
+      const CompareFunction &_compare = boost::bind(traits<T>::Equals,_1,_2,1e-9)) :
       Base(noiseModel::Constrained::All(traits<T>::GetDimension(feasible)),
           j), feasible_(feasible), allow_error_(true), error_gain_(error_gain), //
       compare_(_compare) {
@@ -107,17 +107,15 @@ public:
   /// @name Testable
   /// @{
 
-  void print(const std::string& s = "",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
-    std::cout << (s.empty() ? s : s + " ") << "Constraint: on ["
-              << keyFormatter(this->key()) << "]\n";
+  virtual void print(const std::string& s = "",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
+    std::cout << s << "Constraint: on [" << keyFormatter(this->key()) << "]\n";
     traits<VALUE>::Print(feasible_, "Feasible Point:\n");
-    std::cout << "Variable Dimension: " << traits<T>::GetDimension(feasible_)
-              << std::endl;
+    std::cout << "Variable Dimension: " << traits<T>::GetDimension(feasible_) << std::endl;
   }
 
   /** Check if two factors are equal */
-  bool equals(const NonlinearFactor& f, double tol = 1e-9) const override {
+  virtual bool equals(const NonlinearFactor& f, double tol = 1e-9) const {
     const This* e = dynamic_cast<const This*>(&f);
     return e && Base::equals(f) && traits<T>::Equals(feasible_,e->feasible_, tol)
         && std::abs(error_gain_ - e->error_gain_) < tol;
@@ -127,8 +125,8 @@ public:
   /// @name Standard Interface
   /// @{
 
-  /// Actual error function calculation
-  double error(const Values& c) const override {
+  /** actual error function calculation */
+  virtual double error(const Values& c) const {
     const T& xj = c.at<T>(this->key());
     Vector e = this->unwhitenedError(c);
     if (allow_error_ || !compare_(xj, feasible_)) {
@@ -138,8 +136,9 @@ public:
     }
   }
 
-  /// Error function
-  Vector evaluateError(const T& xj, OptionalMatrixType H) const override {
+  /** error function */
+  Vector evaluateError(const T& xj,
+      boost::optional<Matrix&> H = boost::none) const {
     const size_t nj = traits<T>::GetDimension(feasible_);
     if (allow_error_) {
       if (H)
@@ -158,8 +157,8 @@ public:
     }
   }
 
-  /// Linearize is over-written, because base linearization tries to whiten
-  GaussianFactor::shared_ptr linearize(const Values& x) const override {
+  // Linearize is over-written, because base linearization tries to whiten
+  virtual GaussianFactor::shared_ptr linearize(const Values& x) const {
     const T& xj = x.at<T>(this->key());
     Matrix A;
     Vector b = evaluateError(xj, A);
@@ -169,23 +168,19 @@ public:
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
   /// @}
 
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
-
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION  ///
-  /// Serialization function
+  /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-    // NoiseModelFactor1 instead of NoiseModelFactorN for backward compatibility
     ar
         & boost::serialization::make_nvp("NoiseModelFactor1",
             boost::serialization::base_object<Base>(*this));
@@ -193,172 +188,162 @@ private:
     ar & BOOST_SERIALIZATION_NVP(allow_error_);
     ar & BOOST_SERIALIZATION_NVP(error_gain_);
   }
-#endif
 
 };
 // \class NonlinearEquality
 
-template <typename VALUE>
-struct traits<NonlinearEquality<VALUE>> : Testable<NonlinearEquality<VALUE>> {};
+template<typename VALUE>
+struct traits<NonlinearEquality<VALUE> > : Testable<NonlinearEquality<VALUE> > {
+};
 
 /* ************************************************************************* */
 /**
  * Simple unary equality constraint - fixes a value for a variable
  */
 template<class VALUE>
-class NonlinearEquality1: public NoiseModelFactorN<VALUE> {
+class NonlinearEquality1: public NoiseModelFactor1<VALUE> {
 
 public:
   typedef VALUE X;
 
-  // Provide access to Matrix& version of evaluateError:
-  using NoiseModelFactor1<VALUE>::evaluateError;
-
 protected:
-  typedef NoiseModelFactorN<VALUE> Base;
+  typedef NoiseModelFactor1<VALUE> Base;
   typedef NonlinearEquality1<VALUE> This;
 
-  /// Default constructor to allow for serialization
+  /** default constructor to allow for serialization */
   NonlinearEquality1() {
   }
 
   X value_; /// fixed value for variable
 
   GTSAM_CONCEPT_MANIFOLD_TYPE(X)
+
   GTSAM_CONCEPT_TESTABLE_TYPE(X)
 
 public:
 
-  typedef std::shared_ptr<NonlinearEquality1<VALUE> > shared_ptr;
+  typedef boost::shared_ptr<NonlinearEquality1<VALUE> > shared_ptr;
 
   /**
    * Constructor
    * @param value feasible value that values(key) shouild be equal to
    * @param key the key for the unknown variable to be constrained
    * @param mu a parameter which really turns this into a strong prior
+   *
    */
-  NonlinearEquality1(const X& value, Key key, double mu = 1000.0)
-      : Base(noiseModel::Constrained::All(traits<X>::GetDimension(value),
-                                          std::abs(mu)),
-             key),
-        value_(value) {}
+  NonlinearEquality1(const X& value, Key key, double mu = 1000.0) :
+      Base( noiseModel::Constrained::All(traits<X>::GetDimension(value),
+              std::abs(mu)), key), value_(value) {
+  }
 
-  ~NonlinearEquality1() override {
+  virtual ~NonlinearEquality1() {
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
-  /// g(x) with optional derivative
-  Vector evaluateError(const X& x1, OptionalMatrixType H) const override {
+  /** g(x) with optional derivative */
+  Vector evaluateError(const X& x1,
+      boost::optional<Matrix&> H = boost::none) const {
     if (H)
       (*H) = Matrix::Identity(traits<X>::GetDimension(x1),traits<X>::GetDimension(x1));
     // manifold equivalent of h(x)-z -> log(z,h(x))
     return traits<X>::Local(value_,x1);
   }
 
-  /// Print
-  void print(const std::string& s = "",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
+  /** Print */
+  virtual void print(const std::string& s = "",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
     std::cout << s << ": NonlinearEquality1(" << keyFormatter(this->key())
         << ")," << "\n";
     this->noiseModel_->print();
     traits<X>::Print(value_, "Value");
   }
 
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
-
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION  ///
-  /// Serialization function
+  /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-    // NoiseModelFactor1 instead of NoiseModelFactorN for backward compatibility
     ar
         & boost::serialization::make_nvp("NoiseModelFactor1",
             boost::serialization::base_object<Base>(*this));
     ar & BOOST_SERIALIZATION_NVP(value_);
   }
-#endif
 };
 // \NonlinearEquality1
 
-template <typename VALUE>
-struct traits<NonlinearEquality1<VALUE> >
-    : Testable<NonlinearEquality1<VALUE> > {};
+template<typename VALUE>
+struct traits<NonlinearEquality1<VALUE> > : Testable<NonlinearEquality1<VALUE> > {
+};
 
 /* ************************************************************************* */
 /**
- * Simple binary equality constraint - this constraint forces two variables to
+ * Simple binary equality constraint - this constraint forces two factors to
  * be the same.
  */
-template <class T>
-class NonlinearEquality2 : public NoiseModelFactorN<T, T> {
- protected:
-  using Base = NoiseModelFactorN<T, T>;
-  using This = NonlinearEquality2<T>;
+template<class VALUE>
+class NonlinearEquality2: public NoiseModelFactor2<VALUE, VALUE> {
+public:
+  typedef VALUE X;
 
-  GTSAM_CONCEPT_MANIFOLD_TYPE(T)
+protected:
+  typedef NoiseModelFactor2<VALUE, VALUE> Base;
+  typedef NonlinearEquality2<VALUE> This;
 
-  /// Default constructor to allow for serialization
-  NonlinearEquality2() {}
+  GTSAM_CONCEPT_MANIFOLD_TYPE(X)
 
- public:
-  typedef std::shared_ptr<NonlinearEquality2<T>> shared_ptr;
+  /** default constructor to allow for serialization */
+  NonlinearEquality2() {
+  }
 
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
+public:
 
+  typedef boost::shared_ptr<NonlinearEquality2<VALUE> > shared_ptr;
 
-  /**
-   * Constructor
-   * @param key1 the key for the first unknown variable to be constrained
-   * @param key2 the key for the second unknown variable to be constrained
-   * @param mu a parameter which really turns this into a strong prior
-   */
-  NonlinearEquality2(Key key1, Key key2, double mu = 1e4)
-      : Base(noiseModel::Constrained::All(traits<T>::dimension, std::abs(mu)),
-             key1, key2) {}
-  ~NonlinearEquality2() override {}
+  ///TODO: comment
+  NonlinearEquality2(Key key1, Key key2, double mu = 1000.0) :
+      Base(noiseModel::Constrained::All(traits<X>::dimension, std::abs(mu)), key1, key2) {
+  }
+  virtual ~NonlinearEquality2() {
+  }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
-  /// g(x) with optional derivative2
-  Vector evaluateError(
-      const T& x1, const T& x2, OptionalMatrixType H1, OptionalMatrixType H2) const override {
-    static const size_t p = traits<T>::dimension;
-    if (H1) *H1 = -Matrix::Identity(p, p);
-    if (H2) *H2 = Matrix::Identity(p, p);
-    return traits<T>::Local(x1, x2);
+  /** g(x) with optional derivative2 */
+  Vector evaluateError(const X& x1, const X& x2, boost::optional<Matrix&> H1 =
+      boost::none, boost::optional<Matrix&> H2 = boost::none) const {
+    static const size_t p = traits<X>::dimension;
+    if (H1) *H1 = -Matrix::Identity(p,p);
+    if (H2) *H2 =  Matrix::Identity(p,p);
+    return traits<X>::Local(x1,x2);
   }
 
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
+private:
 
- private:
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
-  /// Serialization function
+  /** Serialization function */
   friend class boost::serialization::access;
-  template <class ARCHIVE>
-  void serialize(ARCHIVE& ar, const unsigned int /*version*/) {
-    // NoiseModelFactor2 instead of NoiseModelFactorN for backward compatibility
-    ar& boost::serialization::make_nvp(
-        "NoiseModelFactor2", boost::serialization::base_object<Base>(*this));
+  template<class ARCHIVE>
+  void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
+    ar
+        & boost::serialization::make_nvp("NoiseModelFactor2",
+            boost::serialization::base_object<Base>(*this));
   }
-#endif
 };
 // \NonlinearEquality2
 
-template <typename VALUE>
-struct traits<NonlinearEquality2<VALUE>> : Testable<NonlinearEquality2<VALUE>> {
+template<typename VALUE>
+struct traits<NonlinearEquality2<VALUE> > : Testable<NonlinearEquality2<VALUE> > {
 };
 
+
 }// namespace gtsam
+

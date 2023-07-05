@@ -4,16 +4,10 @@
  *
  * Copyright (c) Charles Karney (2011) <charles@karney.com> and licensed under
  * the MIT/X11 License.  For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 
-#include <cstdlib>
 #include <GeographicLib/Utility.hpp>
-
-#if defined(_MSC_VER)
-// Squelch warnings about unsafe use of getenv
-#  pragma warning (disable: 4996)
-#endif
 
 namespace GeographicLib {
 
@@ -43,19 +37,6 @@ namespace GeographicLib {
     n1 = val.find_last_not_of(spaces);
     val = val.substr(n0, n1 + 1 - n0);
     return true;
-  }
-
-  int Utility::set_digits(int ndigits) {
-#if GEOGRAPHICLIB_PRECISION == 5
-    if (ndigits <= 0) {
-      char* digitenv = getenv("GEOGRAPHICLIB_DIGITS");
-      if (digitenv)
-        ndigits = strtol(digitenv, NULL, 0);
-      if (ndigits <= 0)
-        ndigits = 256;
-    }
-#endif
-    return Math::set_digits(ndigits);
   }
 
 } // namespace GeographicLib

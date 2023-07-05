@@ -25,8 +25,6 @@
 
 namespace gtsam {
 
-class LevenbergMarquardtOptimizer;
-
 /** Parameters for Levenberg-Marquardt optimization.  Note that this parameters
  * class inherits from NonlinearOptimizerParams, which specifies the parameters
  * common to all nonlinear optimization algorithms.  This class also contains
@@ -35,14 +33,13 @@ class LevenbergMarquardtOptimizer;
 class GTSAM_EXPORT LevenbergMarquardtParams: public NonlinearOptimizerParams {
 
 public:
-  /** See LevenbergMarquardtParams::verbosityLM */
+  /** See LevenbergMarquardtParams::lmVerbosity */
   enum VerbosityLM {
     SILENT = 0, SUMMARY, TERMINATION, LAMBDA, TRYLAMBDA, TRYCONFIG, DAMPED, TRYDELTA
   };
 
   static VerbosityLM verbosityLMTranslator(const std::string &s);
   static std::string verbosityLMTranslator(VerbosityLM value);
-  using OptimizerType = LevenbergMarquardtOptimizer;
 
 public:
 
@@ -117,43 +114,32 @@ public:
   }
 
   static LevenbergMarquardtParams ReplaceOrdering(LevenbergMarquardtParams params,
-                                                  const Ordering& ord) {
-    params.ordering = ord;
+                                                  const Ordering& ordering) {
+    params.ordering = ordering;
     return params;
   }
 
-  ~LevenbergMarquardtParams() override {}
+  virtual ~LevenbergMarquardtParams() {}
   void print(const std::string& str = "") const override;
 
-  /// @name Getters/Setters, mainly for wrappers. Use fields above in C++.
+  /// @name Getters/Setters, mainly for MATLAB. Use fields above in C++.
   /// @{
   bool getDiagonalDamping() const { return diagonalDamping; }
   double getlambdaFactor() const { return lambdaFactor; }
   double getlambdaInitial() const { return lambdaInitial; }
   double getlambdaLowerBound() const { return lambdaLowerBound; }
   double getlambdaUpperBound() const { return lambdaUpperBound; }
-  bool getUseFixedLambdaFactor() { return useFixedLambdaFactor; }
   std::string getLogFile() const { return logFile; }
   std::string getVerbosityLM() const { return verbosityLMTranslator(verbosityLM);}
-  
   void setDiagonalDamping(bool flag) { diagonalDamping = flag; }
   void setlambdaFactor(double value) { lambdaFactor = value; }
   void setlambdaInitial(double value) { lambdaInitial = value; }
   void setlambdaLowerBound(double value) { lambdaLowerBound = value; }
   void setlambdaUpperBound(double value) { lambdaUpperBound = value; }
-  void setUseFixedLambdaFactor(bool flag) { useFixedLambdaFactor = flag;}
   void setLogFile(const std::string& s) { logFile = s; }
+  void setUseFixedLambdaFactor(bool flag) { useFixedLambdaFactor = flag;}
   void setVerbosityLM(const std::string& s) { verbosityLM = verbosityLMTranslator(s);}
   // @}
-  /// @name Clone
-  /// @{
-
-  /// @return a deep copy of this object
-  std::shared_ptr<NonlinearOptimizerParams> clone() const {
-    return std::shared_ptr<NonlinearOptimizerParams>(new LevenbergMarquardtParams(*this));
-  }
-
-  /// @}
 };
 
 }

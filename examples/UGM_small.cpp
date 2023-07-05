@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -10,16 +10,15 @@
  * -------------------------------------------------------------------------- */
 
 /**
- * @file UGM_small.cpp
+ * @file small.cpp
  * @brief UGM (undirected graphical model) examples: small
  * @author Frank Dellaert
  *
  * See http://www.di.ens.fr/~mschmidt/Software/UGM/small.html
  */
 
-#include <gtsam/base/Vector.h>
 #include <gtsam/discrete/DiscreteFactorGraph.h>
-#include <gtsam/discrete/DiscreteMarginals.h>
+#include <gtsam/discrete/DiscreteSequentialSolver.h>
 
 using namespace std;
 using namespace gtsam;
@@ -50,8 +49,8 @@ int main(int argc, char** argv) {
 
   // Print the UGM distribution
   cout << "\nUGM distribution:" << endl;
-  auto allPosbValues =
-      DiscreteValues::CartesianProduct(Cathy & Heather & Mark & Allison);
+  vector<DiscreteFactor::Values> allPosbValues = cartesianProduct(
+      Cathy & Heather & Mark & Allison);
   for (size_t i = 0; i < allPosbValues.size(); ++i) {
     DiscreteFactor::Values values = allPosbValues[i];
     double prodPot = graph(values);
@@ -61,24 +60,25 @@ int main(int argc, char** argv) {
   }
 
   // "Decoding", i.e., configuration with largest value (MPE)
-  // Uses max-product
-  auto optimalDecoding = graph.optimize();
-  GTSAM_PRINT(optimalDecoding);
+  // We use sequential variable elimination
+  DiscreteSequentialSolver solver(graph);
+  DiscreteFactor::sharedValues optimalDecoding = solver.optimize();
+  optimalDecoding->print("\noptimalDecoding");
 
   // "Inference" Computing marginals
   cout << "\nComputing Node Marginals .." << endl;
-  DiscreteMarginals marginals(graph);
+  Vector margProbs;
 
-  Vector margProbs = marginals.marginalProbabilities(Cathy);
+  margProbs = solver.marginalProbabilities(Cathy);
   print(margProbs, "Cathy's Node Marginal:");
 
-  margProbs = marginals.marginalProbabilities(Heather);
+  margProbs = solver.marginalProbabilities(Heather);
   print(margProbs, "Heather's Node Marginal");
 
-  margProbs = marginals.marginalProbabilities(Mark);
+  margProbs = solver.marginalProbabilities(Mark);
   print(margProbs, "Mark's Node Marginal");
 
-  margProbs = marginals.marginalProbabilities(Allison);
+  margProbs = solver.marginalProbabilities(Allison);
   print(margProbs, "Allison's Node Marginal");
 
   return 0;

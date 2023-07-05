@@ -1,4 +1,4 @@
-MAXIMA = tm ellint tmseries geod geodesic auxlat
+MAXIMA = tm ellint tmseries geod
 MAXIMASOURCES = $(addsuffix .mac,$(MAXIMA))
 
 all:

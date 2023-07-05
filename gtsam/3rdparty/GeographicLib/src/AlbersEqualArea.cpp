@@ -2,30 +2,29 @@
  * \file AlbersEqualArea.cpp
  * \brief Implementation for GeographicLib::AlbersEqualArea class
  *
- * Copyright (c) Charles Karney (2010-2017) <charles@karney.com> and licensed
+ * Copyright (c) Charles Karney (2010-2012) <charles@karney.com> and licensed
  * under the MIT/X11 License.  For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 
 #include <GeographicLib/AlbersEqualArea.hpp>
-
-#if defined(_MSC_VER)
-// Squelch warnings about constant conditional expressions
-#  pragma warning (disable: 4127)
-#endif
 
 namespace GeographicLib {
 
   using namespace std;
 
+  const Math::real AlbersEqualArea::eps_ = numeric_limits<real>::epsilon();
+  const Math::real AlbersEqualArea::epsx_ = Math::sq(eps_);
+  const Math::real AlbersEqualArea::epsx2_ = Math::sq(epsx_);
+  const Math::real AlbersEqualArea::tol_ = sqrt(eps_);
+  const Math::real AlbersEqualArea::tol0_ = tol_ * sqrt(sqrt(eps_));
+  const Math::real AlbersEqualArea::ahypover_ =
+    real(numeric_limits<real>::digits) * log(real(numeric_limits<real>::radix))
+    + 2;
+
   AlbersEqualArea::AlbersEqualArea(real a, real f, real stdlat, real k0)
-    : eps_(numeric_limits<real>::epsilon())
-    , epsx_(Math::sq(eps_))
-    , epsx2_(Math::sq(epsx_))
-    , tol_(sqrt(eps_))
-    , tol0_(tol_ * sqrt(sqrt(eps_)))
-    , _a(a)
-    , _f(f)
+    : _a(a)
+    , _f(f <= 1 ? f : 1/f)
     , _fm(1 - _f)
     , _e2(_f * (2 - _f))
     , _e(sqrt(abs(_e2)))
@@ -34,27 +33,24 @@ namespace GeographicLib {
     , _qx(_qZ / ( 2 * _e2m ))
   {
     if (!(Math::isfinite(_a) && _a > 0))
-      throw GeographicErr("Equatorial radius is not positive");
+      throw GeographicErr("Major radius is not positive");
     if (!(Math::isfinite(_f) && _f < 1))
-      throw GeographicErr("Polar semi-axis is not positive");
+      throw GeographicErr("Minor radius is not positive");
     if (!(Math::isfinite(k0) && k0 > 0))
       throw GeographicErr("Scale is not positive");
     if (!(abs(stdlat) <= 90))
       throw GeographicErr("Standard latitude not in [-90d, 90d]");
-    real sphi, cphi;
-    Math::sincosd(stdlat, sphi, cphi);
+    real
+      phi = stdlat * Math::degree<real>(),
+      sphi = sin(phi),
+      cphi = abs(stdlat) != 90 ? cos(phi) : 0;
     Init(sphi, cphi, sphi, cphi, k0);
   }
 
   AlbersEqualArea::AlbersEqualArea(real a, real f, real stdlat1, real stdlat2,
                                    real k1)
-    : eps_(numeric_limits<real>::epsilon())
-    , epsx_(Math::sq(eps_))
-    , epsx2_(Math::sq(epsx_))
-    , tol_(sqrt(eps_))
-    , tol0_(tol_ * sqrt(sqrt(eps_)))
-    , _a(a)
-    , _f(f)
+    : _a(a)
+    , _f(f <= 1 ? f : 1/f)
     , _fm(1 - _f)
     , _e2(_f * (2 - _f))
     , _e(sqrt(abs(_e2)))
@@ -63,32 +59,28 @@ namespace GeographicLib {
     , _qx(_qZ / ( 2 * _e2m ))
   {
     if (!(Math::isfinite(_a) && _a > 0))
-      throw GeographicErr("Equatorial radius is not positive");
+      throw GeographicErr("Major radius is not positive");
     if (!(Math::isfinite(_f) && _f < 1))
-      throw GeographicErr("Polar semi-axis is not positive");
+      throw GeographicErr("Minor radius is not positive");
     if (!(Math::isfinite(k1) && k1 > 0))
       throw GeographicErr("Scale is not positive");
     if (!(abs(stdlat1) <= 90))
       throw GeographicErr("Standard latitude 1 not in [-90d, 90d]");
     if (!(abs(stdlat2) <= 90))
       throw GeographicErr("Standard latitude 2 not in [-90d, 90d]");
-    real sphi1, cphi1, sphi2, cphi2;
-    Math::sincosd(stdlat1, sphi1, cphi1);
-    Math::sincosd(stdlat2, sphi2, cphi2);
-    Init(sphi1, cphi1, sphi2, cphi2, k1);
+    real
+      phi1 = stdlat1 * Math::degree<real>(),
+      phi2 = stdlat2 * Math::degree<real>();
+    Init(sin(phi1), abs(stdlat1) != 90 ? cos(phi1) : 0,
+         sin(phi2), abs(stdlat2) != 90 ? cos(phi2) : 0, k1);
   }
 
   AlbersEqualArea::AlbersEqualArea(real a, real f,
                                    real sinlat1, real coslat1,
                                    real sinlat2, real coslat2,
                                    real k1)
-    : eps_(numeric_limits<real>::epsilon())
-    , epsx_(Math::sq(eps_))
-    , epsx2_(Math::sq(epsx_))
-    , tol_(sqrt(eps_))
-    , tol0_(tol_ * sqrt(sqrt(eps_)))
-    , _a(a)
-    , _f(f)
+    : _a(a)
+    , _f(f <= 1 ? f : 1/f)
     , _fm(1 - _f)
     , _e2(_f * (2 - _f))
     , _e(sqrt(abs(_e2)))
@@ -97,9 +89,9 @@ namespace GeographicLib {
     , _qx(_qZ / ( 2 * _e2m ))
   {
     if (!(Math::isfinite(_a) && _a > 0))
-      throw GeographicErr("Equatorial radius is not positive");
+      throw GeographicErr("Major radius is not positive");
     if (!(Math::isfinite(_f) && _f < 1))
-      throw GeographicErr("Polar semi-axis is not positive");
+      throw GeographicErr("Minor radius is not positive");
     if (!(Math::isfinite(k1) && k1 > 0))
       throw GeographicErr("Scale is not positive");
     if (!(coslat1 >= 0))
@@ -117,7 +109,7 @@ namespace GeographicLib {
   }
 
   void AlbersEqualArea::Init(real sphi1, real cphi1,
-                             real sphi2, real cphi2, real k1) {
+                             real sphi2, real cphi2, real k1) throw() {
     {
       real r;
       r = Math::hypot(sphi1, cphi1);
@@ -194,8 +186,7 @@ namespace GeographicLib {
                Math::sq(cxi1/cphi1) * (1 + sphi1) / (1 + sxi1))) ) *
           (1 + _e2 * (sphi1 + sphi2 + sphi1 * sphi2)) /
           (1 +       (sphi1 + sphi2 + sphi1 * sphi2)) +
-          (scbet22 * (sphi2 <= 0 ? 1 - sphi2 :
-                      Math::sq(cphi2) / ( 1 + sphi2)) +
+          (scbet22 * (sphi2 <= 0 ? 1 - sphi2 : Math::sq(cphi2) / ( 1 + sphi2)) +
            scbet12 * (sphi1 <= 0 ? 1 - sphi1 : Math::sq(cphi1) / ( 1 + sphi1)))
           * (_e2 * (1 + sphi1 + sphi2 + _e2 * sphi1 * sphi2)/(es1 * es2)
           +_e2m * DDatanhee(sphi1, sphi2) ) / _qZ ) / den;
@@ -203,14 +194,13 @@ namespace GeographicLib {
       C = den / (2 * scbet12 * scbet22 * dsxi);
       tphi0 = (tphi2 + tphi1)/2;
       real stol = tol0_ * max(real(1), abs(tphi0));
-      for (int i = 0; i < 2*numit0_ || GEOGRAPHICLIB_PANIC; ++i) {
+      for (int i = 0; i < 2*numit0_; ++i) {
         // Solve (scbet0^2 * sphi0) / (1/qZ + scbet0^2 * sphi0 * sxi0) = s
         // for tphi0 by Newton's method on
         // v(tphi0) = (scbet0^2 * sphi0) - s * (1/qZ + scbet0^2 * sphi0 * sxi0)
         //          = 0
         // Alt:
-        // (scbet0^2 * sphi0) / (1/qZ - scbet0^2 * sphi0 * (1-sxi0))
-        //          = s / (1-s)
+        // (scbet0^2 * sphi0) / (1/qZ - scbet0^2 * sphi0 * (1-sxi0)) = s / (1-s)
         // w(tphi0) = (1-s) * (scbet0^2 * sphi0)
         //             - s  * (1/qZ - scbet0^2 * sphi0 * (1-sxi0))
         //          = (1-s) * (scbet0^2 * sphi0)
@@ -271,31 +261,28 @@ namespace GeographicLib {
     _nrho0 = polar ? 0 : _a * sqrt(_m02);
     _k0 = sqrt(tphi1 == tphi2 ? 1 : C / (_m02 + _n0 * _qZ * _sxi0)) * k1;
     _k2 = Math::sq(_k0);
-    _lat0 = _sign * atan(tphi0)/Math::degree();
+    _lat0 = _sign * atan(tphi0)/Math::degree<real>();
   }
 
-  const AlbersEqualArea& AlbersEqualArea::CylindricalEqualArea() {
-    static const AlbersEqualArea
-      cylindricalequalarea(Constants::WGS84_a(), Constants::WGS84_f(),
-                           real(0), real(1), real(0), real(1), real(1));
-    return cylindricalequalarea;
-  }
+  const AlbersEqualArea
+  AlbersEqualArea::CylindricalEqualArea(Constants::WGS84_a<real>(),
+                                        Constants::WGS84_f<real>(),
+                                        real(0), real(1), real(0), real(1),
+                                        real(1));
 
-  const AlbersEqualArea& AlbersEqualArea::AzimuthalEqualAreaNorth() {
-    static const AlbersEqualArea
-      azimuthalequalareanorth(Constants::WGS84_a(), Constants::WGS84_f(),
-                              real(1), real(0), real(1), real(0), real(1));
-    return azimuthalequalareanorth;
-  }
+  const AlbersEqualArea
+  AlbersEqualArea::AzimuthalEqualAreaNorth(Constants::WGS84_a<real>(),
+                                           Constants::WGS84_f<real>(),
+                                           real(1), real(0), real(1), real(0),
+                                           real(1));
 
-  const AlbersEqualArea& AlbersEqualArea::AzimuthalEqualAreaSouth() {
-    static const AlbersEqualArea
-      azimuthalequalareasouth(Constants::WGS84_a(), Constants::WGS84_f(),
-                              real(-1), real(0), real(-1), real(0), real(1));
-    return azimuthalequalareasouth;
-  }
+  const AlbersEqualArea
+  AlbersEqualArea::AzimuthalEqualAreaSouth(Constants::WGS84_a<real>(),
+                                           Constants::WGS84_f<real>(),
+                                           real(-1), real(0), real(-1), real(0),
+                                           real(1));
 
-  Math::real AlbersEqualArea::txif(real tphi) const {
+  Math::real AlbersEqualArea::txif(real tphi) const throw() {
     // sxi = ( sphi/(1-e2*sphi^2) + atanhee(sphi) ) /
     //       ( 1/(1-e2) + atanhee(1) )
     //
@@ -322,12 +309,12 @@ namespace GeographicLib {
             ( es1m1 / es2m1a + atanhee(es1p1) ) );
   }
 
-  Math::real AlbersEqualArea::tphif(real txi) const {
+  Math::real AlbersEqualArea::tphif(real txi) const throw() {
     real
       tphi = txi,
       stol = tol_ * max(real(1), abs(txi));
     // CHECK: min iterations = 1, max iterations = 2; mean = 1.99
-    for (int i = 0; i < numit_ || GEOGRAPHICLIB_PANIC; ++i) {
+    for (int i = 0; i < numit_; ++i) {
       // dtxi/dtphi = (scxi/scphi)^3 * 2*(1-e^2)/(qZ*(1-e^2*sphi^2)^2)
       real
         txia = txif(tphi),
@@ -345,7 +332,7 @@ namespace GeographicLib {
 
   // return atanh(sqrt(x))/sqrt(x) - 1 = y/3 + y^2/5 + y^3/7 + ...
   // typical x < e^2 = 2*f
-  Math::real AlbersEqualArea::atanhxm1(real x) {
+  Math::real AlbersEqualArea::atanhxm1(real x) throw() {
     real s = 0;
     if (abs(x) < real(0.5)) {
       real os = -1, y = 1, k = 1;
@@ -363,7 +350,7 @@ namespace GeographicLib {
   }
 
   // return (Datanhee(1,y) - Datanhee(1,x))/(y-x)
-  Math::real AlbersEqualArea::DDatanhee(real x, real y) const {
+  Math::real AlbersEqualArea::DDatanhee(real x, real y) const throw() {
     real s = 0;
     if (_e2 * (abs(x) + abs(y)) < real(0.5)) {
       real os = -1, z = 1, k = 1, t = 0, c = 0, en = 1;
@@ -384,14 +371,14 @@ namespace GeographicLib {
   }
 
   void AlbersEqualArea::Forward(real lon0, real lat, real lon,
-                                real& x, real& y, real& gamma, real& k) const {
-    lon = Math::AngDiff(lon0, lon);
+                                real& x, real& y, real& gamma, real& k)
+    const throw() {
+    lon = Math::AngDiff(Math::AngNormalize(lon0), Math::AngNormalize(lon));
     lat *= _sign;
-    real sphi, cphi;
-    Math::sincosd(Math::LatFix(lat) * _sign, sphi, cphi);
-    cphi = max(epsx_, cphi);
     real
-      lam = lon * Math::degree(),
+      lam = lon * Math::degree<real>(),
+      phi = lat * Math::degree<real>(),
+      sphi = sin(phi), cphi = abs(lat) != 90 ? cos(phi) : epsx_,
       tphi = sphi/cphi, txi = txif(tphi), sxi = txi/hyp(txi),
       dq = _qZ * Dsn(txi, _txi0, sxi, _sxi0) * (txi - _txi0),
       drho = - _a * dq / (sqrt(_m02 - _n0 * dq) + _nrho0 / _a),
@@ -405,12 +392,13 @@ namespace GeographicLib {
          - drho * ctheta) / _k0;
     k = _k0 * (t != 0 ? t * hyp(_fm * tphi) / _a : 1);
     y *= _sign;
-    gamma = _sign * theta / Math::degree();
+    gamma = _sign * theta / Math::degree<real>();
   }
 
   void AlbersEqualArea::Reverse(real lon0, real x, real y,
                                 real& lat, real& lon,
-                                real& gamma, real& k) const {
+                                real& gamma, real& k)
+    const throw() {
     y *= _sign;
     real
       nx = _k0 * _n0 * x, ny = _k0 * _n0 * y, y1 =  _nrho0 - ny,
@@ -421,11 +409,12 @@ namespace GeographicLib {
               (Math::sq(_a) * _qZ),
       txi = (_txi0 + dsxia) / sqrt(max(1 - dsxia * (2*_txi0 + dsxia), epsx2_)),
       tphi = tphif(txi),
+      phi = _sign * atan(tphi),
       theta = atan2(nx, y1),
       lam = _n0 != 0 ? theta / (_k2 * _n0) : x / (y1 * _k0);
-    gamma = _sign * theta / Math::degree();
-    lat = Math::atand(_sign * tphi);
-    lon = lam / Math::degree();
+    gamma = _sign * theta / Math::degree<real>();
+    lat = phi / Math::degree<real>();
+    lon = lam / Math::degree<real>();
     lon = Math::AngNormalize(lon + Math::AngNormalize(lon0));
     k = _k0 * (den != 0 ? (_nrho0 + _n0 * drho) * hyp(_fm * tphi) / _a : 1);
   }

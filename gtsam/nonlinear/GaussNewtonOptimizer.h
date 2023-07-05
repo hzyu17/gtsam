@@ -11,7 +11,7 @@
 
 /**
  * @file    GaussNewtonOptimizer.h
- * @brief
+ * @brief   
  * @author  Richard Roberts
  * @date   Feb 26, 2012
  */
@@ -28,8 +28,6 @@ class GaussNewtonOptimizer;
  * NonlinearOptimizationParams.
  */
 class GTSAM_EXPORT GaussNewtonParams : public NonlinearOptimizerParams {
-public:
-  using OptimizerType = GaussNewtonOptimizer;
 };
 
 /**
@@ -70,11 +68,11 @@ public:
   /// @{
 
   /** Virtual destructor */
-  ~GaussNewtonOptimizer() override {}
+  virtual ~GaussNewtonOptimizer() {}
 
-  /** 
-   * Perform a single iteration, returning GaussianFactorGraph corresponding to 
-   * the linearized factor graph.
+  /** Perform a single iteration, returning a new NonlinearOptimizer class
+   * containing the updated variable assignments, which may be retrieved with
+   * values().
    */
   GaussianFactorGraph::shared_ptr iterate() override;
 

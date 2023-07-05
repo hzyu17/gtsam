@@ -29,12 +29,7 @@ namespace gtsam {
  */
 class EqualityFactorGraph: public FactorGraph<LinearEquality> {
 public:
-  typedef std::shared_ptr<EqualityFactorGraph> shared_ptr;
-
-  /// Add a linear inequality, forwards arguments to LinearInequality.
-  template <class... Args> void add(Args &&... args) {
-    emplace_shared<LinearEquality>(std::forward<Args>(args)...);
-  }
+  typedef boost::shared_ptr<EqualityFactorGraph> shared_ptr;
 
   /// Compute error of a guess.
   double error(const VectorValues& x) const {

@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -20,6 +20,7 @@
 
 #include <gtsam/linear/iterative.h>
 #include <gtsam/linear/ConjugateGradientSolver.h>
+#include <boost/shared_ptr.hpp>
 
 namespace gtsam {
 
@@ -71,7 +72,7 @@ namespace gtsam {
     double takeOptimalStep(V& x) {
       // TODO: can we use gamma instead of dot(d,g) ????? Answer not trivial
       double alpha = -dot(d, g) / dot(Ad, Ad); // calculate optimal step-size
-      x += alpha * d; // do step in new search direction, x += alpha*d
+      axpy(alpha, d, x); // // do step in new search direction, x += alpha*d
       return alpha;
     }
 
@@ -105,7 +106,7 @@ namespace gtsam {
         double beta = new_gamma / gamma;
         // d = g + d*beta;
         d *= beta;
-        d += 1.0 * g;
+        axpy(1.0, g, d);
       }
 
       gamma = new_gamma;

@@ -37,13 +37,13 @@ public:
     VERBOSE
   };
 
-  double deltaInitial; ///< The initial trust region radius (default: 10.0)
+  double deltaInitial; ///< The initial trust region radius (default: 1.0)
   VerbosityDL verbosityDL; ///< The verbosity level for Dogleg (default: SILENT), see also NonlinearOptimizerParams::verbosity
 
   DoglegParams() :
     deltaInitial(1.0), verbosityDL(SILENT) {}
 
-  ~DoglegParams() override {}
+  virtual ~DoglegParams() {}
 
   void print(const std::string& str = "") const override {
     NonlinearOptimizerParams::print(str);
@@ -71,7 +71,7 @@ protected:
   DoglegParams params_;
 
 public:
-  typedef std::shared_ptr<DoglegOptimizer> shared_ptr;
+  typedef boost::shared_ptr<DoglegOptimizer> shared_ptr;
 
   /// @name Standard interface
   /// @{
@@ -103,11 +103,11 @@ public:
   /// @{
 
   /** Virtual destructor */
-  ~DoglegOptimizer() override {}
+  virtual ~DoglegOptimizer() {}
 
-  /** 
-   * Perform a single iteration, returning GaussianFactorGraph corresponding to 
-   * the linearized factor graph.
+  /** Perform a single iteration, returning a new NonlinearOptimizer class
+   * containing the updated variable assignments, which may be retrieved with
+   * values().
    */
   GaussianFactorGraph::shared_ptr iterate() override;
 
@@ -121,7 +121,7 @@ public:
 
 protected:
   /** Access the parameters (base class version) */
-  const NonlinearOptimizerParams& _params() const override { return params_; }
+  virtual const NonlinearOptimizerParams& _params() const override { return params_; }
 
   /** Internal function for computing a COLAMD ordering if no ordering is specified */
   DoglegParams ensureHasOrdering(DoglegParams params, const NonlinearFactorGraph& graph) const;

@@ -120,7 +120,7 @@ for i=1:size(trajectory)-1
     end
     
     % current ground-truth position indicator
-    h_cursor = plot3(a1, pose_t(1),pose_t(2),pose_t(3),'*');
+    h_cursor = plot3(a1, pose_t.x,pose_t.y,pose_t.z,'*');
  
     camera_pose = pose.compose(camera_transform);
     
@@ -167,7 +167,7 @@ for i=1:size(trajectory)-1
     
     %% priors on first two poses
     if i < 3        
-        % fg.add(PriorFactorVector(currentVelKey, currentVelocityGlobal, sigma_init_v));
+        % fg.add(PriorFactorLieVector(currentVelKey, currentVelocityGlobal, sigma_init_v));
         fg.add(PriorFactorConstantBias(currentBiasKey, currentBias, sigma_init_b));
     end
    
@@ -198,7 +198,7 @@ for i=1:size(trajectory)-1
                 if ~result.exists(lKey)
                     p = landmarks.atPoint3(lKey);
                     n = normrnd(0,landmark_noise,3,1);
-                    noisy_landmark = p + n;
+                    noisy_landmark = Point3(p.x()+n(1),p.y()+n(2),p.z()+n(3));
                     initial.insert(lKey, noisy_landmark);
 
                     % and add a prior since its position is known
@@ -245,33 +245,32 @@ for i=1:size(trajectory)-1
         initial = Values;
         fg = NonlinearFactorGraph;
         
-        currentVelocityGlobal = result.atPoint3(currentVelKey);
-        currentBias = result.atConstantBias(currentBiasKey);
+        currentVelocityGlobal = result.at(currentVelKey);
+        currentBias = result.at(currentBiasKey);
         
         %% plot current pose result
-        isam_pose = result.atPose3(xKey);
+        isam_pose = result.at(xKey);
         pose_t = isam_pose.translation();
 
         if exist('h_result','var')
             delete(h_result);
         end
 
-        h_result = plot3(a1, pose_t(1),pose_t(2),pose_t(3),'^b', 'MarkerSize', 10);
+        h_result = plot3(a1, pose_t.x,pose_t.y,pose_t.z,'^b', 'MarkerSize', 10);
         title(a1, sprintf('Step %d', i));
         
         if exist('h_text1(1)', 'var')
             delete(h_text1(1));
 %             delete(h_text2(1));
         end
-        t = result.atPose3(transformKey).translation();
-        ty = t(2);
-        K_estimate = result.atCal3_S2(calibrationKey);
+        ty = result.at(transformKey).translation().y();
+        K_estimate = result.at(calibrationKey);
         K_errors = K.localCoordinates(K_estimate);
         
-        camera_transform_estimate = result.atPose3(transformKey);
+        camera_transform_estimate = result.at(transformKey);
         
-        fx = result.atCal3_S2(calibrationKey).fx();
-        fy = result.atCal3_S2(calibrationKey).fy();
+        fx = result.at(calibrationKey).fx();
+        fy = result.at(calibrationKey).fy();
 %         h_text1 = text(-600,0,0,sprintf('Y-Transform(0.0): %0.2f',ty));
         text(0,1300,0,sprintf('Calibration and IMU-cam transform errors:'));
         
@@ -305,7 +304,7 @@ for i=1:size(trajectory)-1
 end
 
 %% print out final camera transform and write video
-result.atPose3(transformKey);
+result.at(transformKey);
 if(write_video)
     close(videoObj);
 end

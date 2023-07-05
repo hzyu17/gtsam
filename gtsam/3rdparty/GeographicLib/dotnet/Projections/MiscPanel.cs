@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 using System;
 using System.Collections.Generic;
@@ -25,7 +25,6 @@ namespace Projections
         public MiscPanel()
         {
             InitializeComponent();
-            m_comboBox.SelectedIndex = 0;
         }
 
         private void OnConvertDMS(object sender, EventArgs e)
@@ -56,18 +55,7 @@ namespace Projections
                 m_longitudeDMSTextBox.Text = DMS.Encode(lon, 5, DMS.Flag.LONGITUDE, 0);
                 m_latitudeDMSTextBox.Text = DMS.Encode(lat, 5, DMS.Flag.LATITUDE, 0);
                 string tmp = "";
-                switch (m_comboBox.SelectedIndex)
-                {
-                    case 0: // Geohash
-                        Geohash.Forward(lat, lon, 12, out tmp);
-                        break;
-                    case 1: // GARS
-                        GARS.Forward(lat, lon, 2, out tmp);
-                        break;
-                    case 2: // Georef
-                        Georef.Forward(lat, lon, 2, out tmp);
-                        break;
-                }
+                Geohash.Forward(lat, lon, 12, out tmp);
                 m_geohashTextBox.Text = tmp;
             }
             catch (Exception xcpt)
@@ -80,20 +68,9 @@ namespace Projections
         {
             try
             {
-                double lat = 0.0, lon = 0.0;
+                double lat, lon;
                 int len;
-                switch (m_comboBox.SelectedIndex)
-                {
-                    case 0: // Geohash
-                        Geohash.Reverse(m_geohashTextBox.Text, out lat, out lon, out len, true);
-                        break;
-                    case 1: // GARS
-                        GARS.Reverse(m_geohashTextBox.Text, out lat, out lon, out len, true);
-                        break;
-                    case 2: // Georef
-                        Georef.Reverse(m_geohashTextBox.Text, out lat, out lon, out len, true);
-                        break;
-                }
+                Geohash.Reverse(m_geohashTextBox.Text, out lat, out lon, out len, true);
                 m_LongitudeTextBox.Text = lon.ToString();
                 m_latitudeTextBox.Text = lat.ToString();
                 m_longitudeDMSTextBox.Text = DMS.Encode(lon, 5, DMS.Flag.LONGITUDE, 0);
@@ -113,6 +90,7 @@ namespace Projections
                 DMS.Flag ind;
                 int len;
                 string tmp;
+                DMS.Decode("34.245");
                 DMS.Decode("34d22\'34.567\"", out ind);
                 DMS.Decode(-86.0, 32.0, 34.214);
                 DMS.DecodeAngle("-67.4532");
@@ -129,10 +107,6 @@ namespace Projections
                 Geohash.LatitudeResolution(12);
                 Geohash.LongitudeResolution(12);
                 Geohash.Reverse("djds54mrfc0g", out lat, out lon, out len, true);
-                GARS.Forward(32.0, -86.0, 2, out tmp);
-                GARS.Reverse("189LE37", out lat, out lon, out len, true);
-                Georef.Forward(32.0, -86.0, 2, out tmp);
-                Georef.Reverse("GJEC0000", out lat, out lon, out len, true);
                 MessageBox.Show("No errors detected", "OK", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception xcpt)

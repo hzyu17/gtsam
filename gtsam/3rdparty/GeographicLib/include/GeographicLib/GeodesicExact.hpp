@@ -2,9 +2,9 @@
  * \file GeodesicExact.hpp
  * \brief Header for GeographicLib::GeodesicExact class
  *
- * Copyright (c) Charles Karney (2012-2016) <charles@karney.com> and licensed
+ * Copyright (c) Charles Karney (2012-2013) <charles@karney.com> and licensed
  * under the MIT/X11 License.  For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 
 #if !defined(GEOGRAPHICLIB_GEODESICEXACT_HPP)
@@ -32,8 +32,8 @@ namespace GeographicLib {
    * in a series in the flattening \e f and this provides an accurate solution
    * for \e f &isin; [-0.01, 0.01].  The GeodesicExact class computes the
    * ellitpic integrals directly and so provides a solution which is valid for
-   * all \e f.  However, in practice, its use should be limited to about
-   * <i>b</i>/\e a &isin; [0.01, 100] or \e f &isin; [&minus;99, 0.99].
+   * all \e f.  However, in practice, its use should be limited to about \e
+   * b/\e a &isin; [0.01, 100] or \e f &isin; [-99, 0.99].
    *
    * For the WGS84 ellipsoid, these classes are 2--3 times \e slower than the
    * series solution and 2--3 times \e less \e accurate (because it's less easy
@@ -41,8 +41,8 @@ namespace GeographicLib {
    * the error is about 40 nm (40 nanometers) instead of 15 nm.  However the
    * error in the series solution scales as <i>f</i><sup>7</sup> while the
    * error in the elliptic integral solution depends weakly on \e f.  If the
-   * quarter meridian distance is 10000 km and the ratio <i>b</i>/\e a = 1
-   * &minus; \e f is varied then the approximate maximum error (expressed as a
+   * quarter meridian distance is 10000 km and the ratio \e b/\e a = 1 &minus;
+   * \e f is varied then the approximate maximum error (expressed as a
    * distance) is <pre>
    *       1 - f  error (nm)
    *       1/128     387
@@ -63,8 +63,8 @@ namespace GeographicLib {
    * </pre>
    *
    * The computation of the area in these classes is via a 30th order series.
-   * This gives accurate results for <i>b</i>/\e a &isin; [1/2, 2]; the
-   * accuracy is about 8 decimal digits for <i>b</i>/\e a &isin; [1/4, 4].
+   * This gives accurate results for \e b/\e a &isin; [1/2, 2]; the accuracy is
+   * about 8 decimal digits for \e b/\e a &isin; [1/4, 4].
    *
    * See \ref geodellip for the formulation.  See the documentation on the
    * Geodesic class for additional information on the geodesic problems.
@@ -84,8 +84,15 @@ namespace GeographicLib {
     static const int nC4_ = GEOGRAPHICLIB_GEODESICEXACT_ORDER;
     static const int nC4x_ = (nC4_ * (nC4_ + 1)) / 2;
     static const unsigned maxit1_ = 20;
-    unsigned maxit2_;
-    real tiny_, tol0_, tol1_, tol2_, tolb_, xthresh_;
+    static const unsigned maxit2_ = maxit1_ +
+      std::numeric_limits<real>::digits + 10;
+
+    static const real tiny_;
+    static const real tol0_;
+    static const real tol1_;
+    static const real tol2_;
+    static const real tolb_;
+    static const real xthresh_;
 
     enum captype {
       CAP_NONE = 0U,
@@ -95,13 +102,29 @@ namespace GeographicLib {
       CAP_H    = 1U<<3,
       CAP_C4   = 1U<<4,
       CAP_ALL  = 0x1FU,
-      CAP_MASK = CAP_ALL,
       OUT_ALL  = 0x7F80U,
-      OUT_MASK = 0xFF80U,       // Includes LONG_UNROLL
     };
 
-    static real CosSeries(real sinx, real cosx, const real c[], int n);
-    static real Astroid(real x, real y);
+    static real CosSeries(real sinx, real cosx, const real c[], int n)
+      throw();
+    static inline real AngRound(real x) throw() {
+      // The makes the smallest gap in x = 1/16 - nextafter(1/16, 0) = 1/2^57
+      // for reals = 0.7 pm on the earth if x is an angle in degrees.  (This
+      // is about 1000 times more resolution than we get with angles around 90
+      // degrees.)  We use this to avoid having to deal with near singular
+      // cases when x is non-zero but tiny (e.g., 1.0e-200).
+      const real z = 1/real(16);
+      volatile real y = std::abs(x);
+      // The compiler mustn't "simplify" z - (z - y) to y
+      y = y < z ? z - (z - y) : y;
+      return x < 0 ? -y : y;
+    }
+    static inline void SinCosNorm(real& sinx, real& cosx) throw() {
+      real r = Math::hypot(sinx, cosx);
+      sinx /= r;
+      cosx /= r;
+    }
+    static real Astroid(real x, real y) throw();
 
     real _a, _f, _f1, _e2, _ep2, _n, _b, _c2, _etol2;
     real _C4x[nC4x_];
@@ -110,39 +133,28 @@ namespace GeographicLib {
                  real sig12,
                  real ssig1, real csig1, real dn1,
                  real ssig2, real csig2, real dn2,
-                 real cbet1, real cbet2, unsigned outmask,
+                 real cbet1, real cbet2,
                  real& s12s, real& m12a, real& m0,
-                 real& M12, real& M21) const;
+                 bool scalep, real& M12, real& M21) const throw();
     real InverseStart(EllipticFunction& E,
                       real sbet1, real cbet1, real dn1,
                       real sbet2, real cbet2, real dn2,
-                      real lam12, real slam12, real clam12,
+                      real lam12,
                       real& salp1, real& calp1,
-                      real& salp2, real& calp2, real& dnm) const;
+                      real& salp2, real& calp2, real& dnm) const throw();
     real Lambda12(real sbet1, real cbet1, real dn1,
                   real sbet2, real cbet2, real dn2,
-                  real salp1, real calp1, real slam120, real clam120,
+                  real salp1, real calp1,
                   real& salp2, real& calp2, real& sig12,
                   real& ssig1, real& csig1, real& ssig2, real& csig2,
                   EllipticFunction& E,
-                  real& domg12, bool diffp, real& dlam12) const;
-    real GenInverse(real lat1, real lon1, real lat2, real lon2,
-                    unsigned outmask, real& s12,
-                    real& salp1, real& calp1, real& salp2, real& calp2,
-                    real& m12, real& M12, real& M21, real& S12) const;
+                  real& omg12, bool diffp, real& dlam12)
+      const throw();
 
     // These are Maxima generated functions to provide series approximations to
     // the integrals for the area.
-    void C4coeff();
-    void C4f(real k2, real c[]) const;
-    // Large coefficients are split so that lo contains the low 52 bits and hi
-    // the rest.  This choice avoids double rounding with doubles and higher
-    // precision types.  float coefficients will suffer double rounding;
-    // however the accuracy is already lousy for floats.
-    static Math::real reale(long long hi, long long lo) {
-      using std::ldexp;
-      return ldexp(real(hi), 52) + lo;
-    }
+    void C4coeff() throw();
+    void C4f(real k2, real c[]) const throw();
 
   public:
 
@@ -206,13 +218,7 @@ namespace GeographicLib {
        **********************************************************************/
       AREA          = 1U<<14 | CAP_C4,
       /**
-       * Unroll \e lon2 in the direct calculation.
-       * @hideinitializer
-       **********************************************************************/
-      LONG_UNROLL   = 1U<<15,
-      /**
-       * All capabilities, calculate everything.  (LONG_UNROLL is not
-       * included in this mask.)
+       * All capabilities, calculate everything.
        * @hideinitializer
        **********************************************************************/
       ALL           = OUT_ALL| CAP_ALL,
@@ -226,8 +232,9 @@ namespace GeographicLib {
      *
      * @param[in] a equatorial radius (meters).
      * @param[in] f flattening of ellipsoid.  Setting \e f = 0 gives a sphere.
-     *   Negative \e f gives a prolate ellipsoid.
-     * @exception GeographicErr if \e a or (1 &minus; \e f) \e a is not
+     *   Negative \e f gives a prolate ellipsoid.  If \e f > 1, set flattening
+     *   to 1/\e f.
+     * @exception GeographicErr if \e a or (1 &minus; \e f ) \e a is not
      *   positive.
      **********************************************************************/
     GeodesicExact(real a, real f);
@@ -256,9 +263,10 @@ namespace GeographicLib {
      * @param[out] S12 area under the geodesic (meters<sup>2</sup>).
      * @return \e a12 arc length of between point 1 and point 2 (degrees).
      *
-     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;].  The values of
+     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;]; \e lon1 and \e
+     * azi1 should be in the range [&minus;540&deg;, 540&deg;).  The values of
      * \e lon2 and \e azi2 returned are in the range [&minus;180&deg;,
-     * 180&deg;].
+     * 180&deg;).
      *
      * If either point is at a pole, the azimuth is defined by keeping the
      * longitude fixed, writing \e lat = &plusmn;(90&deg; &minus; &epsilon;),
@@ -274,7 +282,7 @@ namespace GeographicLib {
     Math::real Direct(real lat1, real lon1, real azi1, real s12,
                       real& lat2, real& lon2, real& azi2,
                       real& m12, real& M12, real& M21, real& S12)
-      const {
+      const throw() {
       real t;
       return GenDirect(lat1, lon1, azi1, false, s12,
                        LATITUDE | LONGITUDE | AZIMUTH |
@@ -287,7 +295,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Direct(real lat1, real lon1, real azi1, real s12,
                       real& lat2, real& lon2)
-      const {
+      const throw() {
       real t;
       return GenDirect(lat1, lon1, azi1, false, s12,
                        LATITUDE | LONGITUDE,
@@ -299,7 +307,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Direct(real lat1, real lon1, real azi1, real s12,
                       real& lat2, real& lon2, real& azi2)
-      const {
+      const throw() {
       real t;
       return GenDirect(lat1, lon1, azi1, false, s12,
                        LATITUDE | LONGITUDE | AZIMUTH,
@@ -311,7 +319,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Direct(real lat1, real lon1, real azi1, real s12,
                       real& lat2, real& lon2, real& azi2, real& m12)
-      const {
+      const throw() {
       real t;
       return GenDirect(lat1, lon1, azi1, false, s12,
                        LATITUDE | LONGITUDE | AZIMUTH | REDUCEDLENGTH,
@@ -324,7 +332,7 @@ namespace GeographicLib {
     Math::real Direct(real lat1, real lon1, real azi1, real s12,
                       real& lat2, real& lon2, real& azi2,
                       real& M12, real& M21)
-      const {
+      const throw() {
       real t;
       return GenDirect(lat1, lon1, azi1, false, s12,
                        LATITUDE | LONGITUDE | AZIMUTH | GEODESICSCALE,
@@ -337,7 +345,7 @@ namespace GeographicLib {
     Math::real Direct(real lat1, real lon1, real azi1, real s12,
                       real& lat2, real& lon2, real& azi2,
                       real& m12, real& M12, real& M21)
-      const {
+      const throw() {
       real t;
       return GenDirect(lat1, lon1, azi1, false, s12,
                        LATITUDE | LONGITUDE | AZIMUTH |
@@ -369,9 +377,10 @@ namespace GeographicLib {
      *   (dimensionless).
      * @param[out] S12 area under the geodesic (meters<sup>2</sup>).
      *
-     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;].  The values of
+     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;]; \e lon1 and \e
+     * azi1 should be in the range [&minus;540&deg;, 540&deg;).  The values of
      * \e lon2 and \e azi2 returned are in the range [&minus;180&deg;,
-     * 180&deg;].
+     * 180&deg;).
      *
      * If either point is at a pole, the azimuth is defined by keeping the
      * longitude fixed, writing \e lat = &plusmn;(90&deg; &minus; &epsilon;),
@@ -386,7 +395,7 @@ namespace GeographicLib {
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
                    real& lat2, real& lon2, real& azi2, real& s12,
                    real& m12, real& M12, real& M21, real& S12)
-      const {
+      const throw() {
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE | AZIMUTH | DISTANCE |
                 REDUCEDLENGTH | GEODESICSCALE | AREA,
@@ -397,7 +406,7 @@ namespace GeographicLib {
      * See the documentation for GeodesicExact::ArcDirect.
      **********************************************************************/
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
-                   real& lat2, real& lon2) const {
+                   real& lat2, real& lon2) const throw() {
       real t;
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE,
@@ -408,7 +417,7 @@ namespace GeographicLib {
      * See the documentation for GeodesicExact::ArcDirect.
      **********************************************************************/
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
-                   real& lat2, real& lon2, real& azi2) const {
+                   real& lat2, real& lon2, real& azi2) const throw() {
       real t;
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE | AZIMUTH,
@@ -420,7 +429,7 @@ namespace GeographicLib {
      **********************************************************************/
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
                    real& lat2, real& lon2, real& azi2, real& s12)
-      const {
+      const throw() {
       real t;
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE | AZIMUTH | DISTANCE,
@@ -432,7 +441,7 @@ namespace GeographicLib {
      **********************************************************************/
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
                    real& lat2, real& lon2, real& azi2,
-                   real& s12, real& m12) const {
+                   real& s12, real& m12) const throw() {
       real t;
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE | AZIMUTH | DISTANCE |
@@ -445,7 +454,7 @@ namespace GeographicLib {
      **********************************************************************/
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
                    real& lat2, real& lon2, real& azi2, real& s12,
-                   real& M12, real& M21) const {
+                   real& M12, real& M21) const throw() {
       real t;
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE | AZIMUTH | DISTANCE |
@@ -458,7 +467,7 @@ namespace GeographicLib {
      **********************************************************************/
     void ArcDirect(real lat1, real lon1, real azi1, real a12,
                    real& lat2, real& lon2, real& azi2, real& s12,
-                   real& m12, real& M12, real& M21) const {
+                   real& m12, real& M12, real& M21) const throw() {
       real t;
       GenDirect(lat1, lon1, azi1, true, a12,
                 LATITUDE | LONGITUDE | AZIMUTH | DISTANCE |
@@ -507,25 +516,19 @@ namespace GeographicLib {
      * - \e outmask |= GeodesicExact::GEODESICSCALE for the geodesic scales \e
      *   M12 and \e M21;
      * - \e outmask |= GeodesicExact::AREA for the area \e S12;
-     * - \e outmask |= GeodesicExact::ALL for all of the above;
-     * - \e outmask |= GeodesicExact::LONG_UNROLL to unroll \e lon2 instead of
-     *   wrapping it into the range [&minus;180&deg;, 180&deg;].
+     * - \e outmask |= GeodesicExact::ALL for all of the above.
      * .
      * The function value \e a12 is always computed and returned and this
      * equals \e s12_a12 is \e arcmode is true.  If \e outmask includes
      * GeodesicExact::DISTANCE and \e arcmode is false, then \e s12 = \e
      * s12_a12.  It is not necessary to include GeodesicExact::DISTANCE_IN in
      * \e outmask; this is automatically included is \e arcmode is false.
-     *
-     * With the GeodesicExact::LONG_UNROLL bit set, the quantity \e lon2
-     * &minus; \e lon1 indicates how many times and in what sense the geodesic
-     * encircles the ellipsoid.
      **********************************************************************/
     Math::real GenDirect(real lat1, real lon1, real azi1,
                          bool arcmode, real s12_a12, unsigned outmask,
                          real& lat2, real& lon2, real& azi2,
                          real& s12, real& m12, real& M12, real& M21,
-                         real& S12) const;
+                         real& S12) const throw();
     ///@}
 
     /** \name Inverse geodesic problem.
@@ -549,22 +552,22 @@ namespace GeographicLib {
      * @param[out] S12 area under the geodesic (meters<sup>2</sup>).
      * @return \e a12 arc length of between point 1 and point 2 (degrees).
      *
-     * \e lat1 and \e lat2 should be in the range [&minus;90&deg;, 90&deg;].
+     * \e lat1 and \e lat2 should be in the range [&minus;90&deg;, 90&deg;]; \e
+     * lon1 and \e lon2 should be in the range [&minus;540&deg;, 540&deg;).
      * The values of \e azi1 and \e azi2 returned are in the range
-     * [&minus;180&deg;, 180&deg;].
+     * [&minus;180&deg;, 180&deg;).
      *
      * If either point is at a pole, the azimuth is defined by keeping the
      * longitude fixed, writing \e lat = &plusmn;(90&deg; &minus; &epsilon;),
      * and taking the limit &epsilon; &rarr; 0+.
      *
-     * The following functions are overloaded versions of
-     * GeodesicExact::Inverse which omit some of the output parameters.  Note,
-     * however, that the arc length is always computed and returned as the
-     * function value.
+     * The following functions are overloaded versions of GeodesicExact::Inverse
+     * which omit some of the output parameters.  Note, however, that the arc
+     * length is always computed and returned as the function value.
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
                        real& s12, real& azi1, real& azi2, real& m12,
-                       real& M12, real& M21, real& S12) const {
+                       real& M12, real& M21, real& S12) const throw() {
       return GenInverse(lat1, lon1, lat2, lon2,
                         DISTANCE | AZIMUTH |
                         REDUCEDLENGTH | GEODESICSCALE | AREA,
@@ -575,7 +578,7 @@ namespace GeographicLib {
      * See the documentation for GeodesicExact::Inverse.
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
-                       real& s12) const {
+                       real& s12) const throw() {
       real t;
       return GenInverse(lat1, lon1, lat2, lon2,
                         DISTANCE,
@@ -586,7 +589,7 @@ namespace GeographicLib {
      * See the documentation for GeodesicExact::Inverse.
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
-                       real& azi1, real& azi2) const {
+                       real& azi1, real& azi2) const throw() {
       real t;
       return GenInverse(lat1, lon1, lat2, lon2,
                         AZIMUTH,
@@ -598,7 +601,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
                        real& s12, real& azi1, real& azi2)
-      const {
+      const throw() {
       real t;
       return GenInverse(lat1, lon1, lat2, lon2,
                         DISTANCE | AZIMUTH,
@@ -610,7 +613,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
                        real& s12, real& azi1, real& azi2, real& m12)
-      const {
+      const throw() {
       real t;
       return GenInverse(lat1, lon1, lat2, lon2,
                         DISTANCE | AZIMUTH | REDUCEDLENGTH,
@@ -622,7 +625,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
                        real& s12, real& azi1, real& azi2,
-                       real& M12, real& M21) const {
+                       real& M12, real& M21) const throw() {
       real t;
       return GenInverse(lat1, lon1, lat2, lon2,
                         DISTANCE | AZIMUTH | GEODESICSCALE,
@@ -634,7 +637,7 @@ namespace GeographicLib {
      **********************************************************************/
     Math::real Inverse(real lat1, real lon1, real lat2, real lon2,
                        real& s12, real& azi1, real& azi2, real& m12,
-                       real& M12, real& M21) const {
+                       real& M12, real& M21) const throw() {
       real t;
       return GenInverse(lat1, lon1, lat2, lon2,
                         DISTANCE | AZIMUTH |
@@ -682,7 +685,8 @@ namespace GeographicLib {
     Math::real GenInverse(real lat1, real lon1, real lat2, real lon2,
                           unsigned outmask,
                           real& s12, real& azi1, real& azi2,
-                          real& m12, real& M12, real& M21, real& S12) const;
+                          real& m12, real& M12, real& M21, real& S12)
+      const throw();
     ///@}
 
     /** \name Interface to GeodesicLineExact.
@@ -701,7 +705,8 @@ namespace GeographicLib {
      *   GeodesicLineExact::Position.
      * @return a GeodesicLineExact object.
      *
-     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;].
+     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;]; \e lon1 and \e
+     * azi1 should be in the range [&minus;540&deg;, 540&deg;).
      *
      * The GeodesicExact::mask values are
      * - \e caps |= GeodesicExact::LATITUDE for the latitude \e lat2; this is
@@ -726,102 +731,9 @@ namespace GeographicLib {
      * fixed, writing \e lat1 = &plusmn;(90 &minus; &epsilon;), and taking the
      * limit &epsilon; &rarr; 0+.
      **********************************************************************/
-    GeodesicLineExact Line(real lat1, real lon1, real azi1,
-                           unsigned caps = ALL) const;
+    GeodesicLineExact Line(real lat1, real lon1, real azi1, unsigned caps = ALL)
+      const throw();
 
-    /**
-     * Define a GeodesicLineExact in terms of the inverse geodesic problem.
-     *
-     * @param[in] lat1 latitude of point 1 (degrees).
-     * @param[in] lon1 longitude of point 1 (degrees).
-     * @param[in] lat2 latitude of point 2 (degrees).
-     * @param[in] lon2 longitude of point 2 (degrees).
-     * @param[in] caps bitor'ed combination of GeodesicExact::mask values
-     *   specifying the capabilities the GeodesicLineExact object should
-     *   possess, i.e., which quantities can be returned in calls to
-     *   GeodesicLineExact::Position.
-     * @return a GeodesicLineExact object.
-     *
-     * This function sets point 3 of the GeodesicLineExact to correspond to
-     * point 2 of the inverse geodesic problem.
-     *
-     * \e lat1 and \e lat2 should be in the range [&minus;90&deg;, 90&deg;].
-     **********************************************************************/
-    GeodesicLineExact InverseLine(real lat1, real lon1, real lat2, real lon2,
-                                  unsigned caps = ALL) const;
-
-    /**
-     * Define a GeodesicLineExact in terms of the direct geodesic problem
-     * specified in terms of distance.
-     *
-     * @param[in] lat1 latitude of point 1 (degrees).
-     * @param[in] lon1 longitude of point 1 (degrees).
-     * @param[in] azi1 azimuth at point 1 (degrees).
-     * @param[in] s12 distance between point 1 and point 2 (meters); it can be
-     *   negative.
-     * @param[in] caps bitor'ed combination of GeodesicExact::mask values
-     *   specifying the capabilities the GeodesicLineExact object should
-     *   possess, i.e., which quantities can be returned in calls to
-     *   GeodesicLineExact::Position.
-     * @return a GeodesicLineExact object.
-     *
-     * This function sets point 3 of the GeodesicLineExact to correspond to
-     * point 2 of the direct geodesic problem.
-     *
-     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;].
-     **********************************************************************/
-    GeodesicLineExact DirectLine(real lat1, real lon1, real azi1, real s12,
-                                 unsigned caps = ALL) const;
-
-    /**
-     * Define a GeodesicLineExact in terms of the direct geodesic problem
-     * specified in terms of arc length.
-     *
-     * @param[in] lat1 latitude of point 1 (degrees).
-     * @param[in] lon1 longitude of point 1 (degrees).
-     * @param[in] azi1 azimuth at point 1 (degrees).
-     * @param[in] a12 arc length between point 1 and point 2 (degrees); it can
-     *   be negative.
-     * @param[in] caps bitor'ed combination of GeodesicExact::mask values
-     *   specifying the capabilities the GeodesicLineExact object should
-     *   possess, i.e., which quantities can be returned in calls to
-     *   GeodesicLineExact::Position.
-     * @return a GeodesicLineExact object.
-     *
-     * This function sets point 3 of the GeodesicLineExact to correspond to
-     * point 2 of the direct geodesic problem.
-     *
-     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;].
-     **********************************************************************/
-    GeodesicLineExact ArcDirectLine(real lat1, real lon1, real azi1, real a12,
-                                    unsigned caps = ALL) const;
-
-    /**
-     * Define a GeodesicLineExact in terms of the direct geodesic problem
-     * specified in terms of either distance or arc length.
-     *
-     * @param[in] lat1 latitude of point 1 (degrees).
-     * @param[in] lon1 longitude of point 1 (degrees).
-     * @param[in] azi1 azimuth at point 1 (degrees).
-     * @param[in] arcmode boolean flag determining the meaning of the \e
-     *   s12_a12.
-     * @param[in] s12_a12 if \e arcmode is false, this is the distance between
-     *   point 1 and point 2 (meters); otherwise it is the arc length between
-     *   point 1 and point 2 (degrees); it can be negative.
-     * @param[in] caps bitor'ed combination of GeodesicExact::mask values
-     *   specifying the capabilities the GeodesicLineExact object should
-     *   possess, i.e., which quantities can be returned in calls to
-     *   GeodesicLineExact::Position.
-     * @return a GeodesicLineExact object.
-     *
-     * This function sets point 3 of the GeodesicLineExact to correspond to
-     * point 2 of the direct geodesic problem.
-     *
-     * \e lat1 should be in the range [&minus;90&deg;, 90&deg;].
-     **********************************************************************/
-    GeodesicLineExact GenDirectLine(real lat1, real lon1, real azi1,
-                                    bool arcmode, real s12_a12,
-                                    unsigned caps = ALL) const;
     ///@}
 
     /** \name Inspector functions.
@@ -832,13 +744,21 @@ namespace GeographicLib {
      * @return \e a the equatorial radius of the ellipsoid (meters).  This is
      *   the value used in the constructor.
      **********************************************************************/
-    Math::real MajorRadius() const { return _a; }
+    Math::real MajorRadius() const throw() { return _a; }
 
     /**
      * @return \e f the  flattening of the ellipsoid.  This is the
      *   value used in the constructor.
      **********************************************************************/
-    Math::real Flattening() const { return _f; }
+    Math::real Flattening() const throw() { return _f; }
+
+    /// \cond SKIP
+    /**
+     * <b>DEPRECATED</b>
+     * @return \e r the inverse flattening of the ellipsoid.
+     **********************************************************************/
+    Math::real InverseFlattening() const throw() { return 1/_f; }
+    /// \endcond
 
     /**
      * @return total area of ellipsoid in meters<sup>2</sup>.  The area of a
@@ -846,15 +766,15 @@ namespace GeographicLib {
      *   GeodesicExact::EllipsoidArea()/2 to the sum of \e S12 for each side of
      *   the polygon.
      **********************************************************************/
-    Math::real EllipsoidArea() const
-    { return 4 * Math::pi() * _c2; }
+    Math::real EllipsoidArea() const throw()
+    { return 4 * Math::pi<real>() * _c2; }
     ///@}
 
     /**
-     * A global instantiation of GeodesicExact with the parameters for the
-     * WGS84 ellipsoid.
+     * A global instantiation of GeodesicExact with the parameters for the WGS84
+     * ellipsoid.
      **********************************************************************/
-    static const GeodesicExact& WGS84();
+    static const GeodesicExact WGS84;
 
   };
 

@@ -48,8 +48,8 @@ struct BinaryJacobianFactor: JacobianFactor {
   }
 
   // Fixed-size matrix update
-  void updateHessian(const KeyVector& infoKeys,
-      SymmetricBlockMatrix* info) const override {
+  void updateHessian(const FastVector<Key>& infoKeys,
+      SymmetricBlockMatrix* info) const {
     gttic(updateHessian_BinaryJacobianFactor);
     // Whiten the factor if it has a noise model
     const SharedDiagonal& model = get_model();

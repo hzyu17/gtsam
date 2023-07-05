@@ -81,14 +81,14 @@ protected:
 
 public:
   /** A shared pointer to this class */
-  using shared_ptr = std::shared_ptr<const NonlinearOptimizer>;
+  typedef boost::shared_ptr<const NonlinearOptimizer> shared_ptr;
 
   /// @name Standard interface
   /// @{
 
-  /** 
-   * Optimize for the maximum-likelihood estimate, returning a the optimized 
-   * variable assignments.
+  /** Optimize for the maximum-likelihood estimate, returning a new
+   * NonlinearOptimizer class containing the optimized variable assignments,
+   * which may be retrieved with values().
    *
    * This function simply calls iterate() in a loop, checking for convergence
    * with check_convergence().  For fine-grain control over the optimization
@@ -105,17 +105,14 @@ public:
    */
   const Values& optimizeSafely();
 
-  /// return error in current optimizer state
+  /// return error
   double error() const;
 
-  /// return number of iterations in current optimizer state
+  /// return number of iterations
   size_t iterations() const;
 
-  /// return values in current optimizer state
-  const Values &values() const;
-
-  /// return the graph with nonlinear factors
-  const NonlinearFactorGraph &graph() const { return graph_; }
+  /// return values
+  const Values& values() const;
 
   /// @}
 
@@ -129,9 +126,9 @@ public:
   virtual VectorValues solve(const GaussianFactorGraph &gfg,
       const NonlinearOptimizerParams& params) const;
 
-  /** 
-   * Perform a single iteration, returning GaussianFactorGraph corresponding to 
-   * the linearized factor graph.
+  /** Perform a single iteration, returning a new NonlinearOptimizer class
+   * containing the updated variable assignments, which may be retrieved with
+   * values().
    */
   virtual GaussianFactorGraph::shared_ptr iterate() = 0;
 

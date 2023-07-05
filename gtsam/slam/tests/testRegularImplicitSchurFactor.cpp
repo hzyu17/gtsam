@@ -27,17 +27,22 @@
 #include <gtsam/linear/GaussianFactor.h>
 #include <gtsam/base/timing.h>
 
+#include <boost/assign/list_of.hpp>
+#include <boost/assign/std/vector.hpp>
+#include <boost/range/iterator_range.hpp>
+#include <boost/range/adaptor/map.hpp>
 #include <CppUnitLite/TestHarness.h>
 
 using namespace std;
+using namespace boost::assign;
 using namespace gtsam;
 
 // F
 const Matrix26 F0 = Matrix26::Ones();
 const Matrix26 F1 = 2 * Matrix26::Ones();
 const Matrix26 F3 = 3 * Matrix26::Ones();
-const vector<Matrix26, Eigen::aligned_allocator<Matrix26> > FBlocks {F0, F1, F3};
-const KeyVector keys {0, 1, 3};
+const vector<Matrix26, Eigen::aligned_allocator<Matrix26> > FBlocks = list_of<Matrix26>(F0)(F1)(F3);
+const FastVector<Key> keys = list_of<Key>(0)(1)(3);
 // RHS and sigmas
 const Vector b = (Vector(6) << 1., 2., 3., 4., 5., 6.).finished();
 
@@ -63,15 +68,17 @@ TEST( regularImplicitSchurFactor, addHessianMultiply ) {
   Matrix3 P = (E.transpose() * E).inverse();
 
   double alpha = 0.5;
-  VectorValues xvalues{{0, Vector::Constant(6, 2)},  //
-                       {1, Vector::Constant(6, 4)},  //
-                       {2, Vector::Constant(6, 0)},  // distractor
-                       {3, Vector::Constant(6, 8)}};
+  VectorValues xvalues = map_list_of //
+  (0, Vector::Constant(6, 2))//
+  (1, Vector::Constant(6, 4))//
+  (2, Vector::Constant(6, 0))// distractor
+  (3, Vector::Constant(6, 8));
 
-  VectorValues yExpected{{0, Vector::Constant(6, 27)},   //
-                         {1, Vector::Constant(6, -40)},  //
-                         {2, Vector::Constant(6, 0)},    // distractor
-                         {3, Vector::Constant(6, 279)}};
+  VectorValues yExpected = map_list_of//
+  (0, Vector::Constant(6, 27))//
+  (1, Vector::Constant(6, -40))//
+  (2, Vector::Constant(6, 0))// distractor
+  (3, Vector::Constant(6, 279));
 
   // Create full F
   size_t M=4, m = 3, d = 6;
@@ -79,7 +86,8 @@ TEST( regularImplicitSchurFactor, addHessianMultiply ) {
   F << F0, Matrix::Zero(2, d * 3), Matrix::Zero(2, d), F1, Matrix::Zero(2, d*2), Matrix::Zero(2, d * 3), F3;
 
   // Calculate expected result F'*alpha*(I - E*P*E')*F*x
-  KeyVector keys2{0,1,2,3};
+  FastVector<Key> keys2;
+  keys2 += 0,1,2,3;
   Vector x = xvalues.vector(keys2);
   Vector expected = Vector::Zero(24);
   RegularImplicitSchurFactor<CalibratedCamera>::multiplyHessianAdd(F, E, P, alpha, x, expected);

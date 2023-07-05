@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -30,7 +30,7 @@ namespace gtsam {
 class GTSAM_UNSTABLE_EXPORT ConcurrentIncrementalSmoother : public virtual ConcurrentSmoother {
 
 public:
-  typedef std::shared_ptr<ConcurrentIncrementalSmoother> shared_ptr;
+  typedef boost::shared_ptr<ConcurrentIncrementalSmoother> shared_ptr;
   typedef ConcurrentSmoother Base; ///< typedef for base class
 
   /** Meta information returned about the update */
@@ -41,7 +41,7 @@ public:
     double error; ///< The final factor graph error
 
     /// Constructor
-    Result() : iterations(0), nonlinearVariables(0), linearVariables(0), error(0) {}
+    Result() : iterations(0), nonlinearVariables(0), linearVariables(0), error(0) {};
 
     /// Getter methods
     size_t getIterations() const { return iterations; }
@@ -51,16 +51,16 @@ public:
   };
 
   /** Default constructor */
-  ConcurrentIncrementalSmoother(const ISAM2Params& parameters = ISAM2Params()) : isam2_(parameters) {}
+  ConcurrentIncrementalSmoother(const ISAM2Params& parameters = ISAM2Params()) : isam2_(parameters) {};
 
   /** Default destructor */
-  ~ConcurrentIncrementalSmoother() override {}
+  virtual ~ConcurrentIncrementalSmoother() {};
 
   /** Implement a GTSAM standard 'print' function */
-  void print(const std::string& s = "Concurrent Incremental Smoother:\n", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s = "Concurrent Incremental Smoother:\n", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /** Check if two Concurrent Smoothers are equal */
-  bool equals(const ConcurrentSmoother& rhs, double tol = 1e-9) const override;
+  virtual bool equals(const ConcurrentSmoother& rhs, double tol = 1e-9) const;
 
   /** Access the current set of factors */
   const NonlinearFactorGraph& getFactors() const {
@@ -109,13 +109,13 @@ public:
    * and additionally, variables that were already in the system must not be included here.
    */
   Result update(const NonlinearFactorGraph& newFactors = NonlinearFactorGraph(), const Values& newTheta = Values(),
-      const std::optional<FactorIndices>& removeFactorIndices = {});
+      const boost::optional<FactorIndices>& removeFactorIndices = boost::none);
 
   /**
    * Perform any required operations before the synchronization process starts.
    * Called by 'synchronize'
    */
-  void presync() override;
+  virtual void presync();
 
   /**
    * Populate the provided containers with factors that constitute the smoother branch summarization
@@ -123,7 +123,7 @@ public:
    *
    * @param summarizedFactors The summarized factors for the filter branch
    */
-  void getSummarizedFactors(NonlinearFactorGraph& summarizedFactors, Values& separatorValues) override;
+  virtual void getSummarizedFactors(NonlinearFactorGraph& summarizedFactors, Values& separatorValues);
 
   /**
    * Apply the new smoother factors sent by the filter, and the updated version of the filter
@@ -134,14 +134,14 @@ public:
    * @param summarizedFactors An updated version of the filter branch summarized factors
    * @param rootValues The linearization point of the root variables
    */
-  void synchronize(const NonlinearFactorGraph& smootherFactors, const Values& smootherValues,
-      const NonlinearFactorGraph& summarizedFactors, const Values& separatorValues) override;
+  virtual void synchronize(const NonlinearFactorGraph& smootherFactors, const Values& smootherValues,
+      const NonlinearFactorGraph& summarizedFactors, const Values& separatorValues);
 
   /**
    * Perform any required operations after the synchronization process finishes.
    * Called by 'synchronize'
    */
-  void postsync() override;
+  virtual void postsync();
 
 protected:
 

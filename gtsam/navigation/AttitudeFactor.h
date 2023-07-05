@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -10,7 +10,7 @@
  * -------------------------------------------------------------------------- */
 
 /**
- *  @file   AttitudeFactor.h
+ *  @file   Pose3AttitudeFactor.h
  *  @author Frank Dellaert
  *  @brief  Header file for Attitude factor
  *  @date   January 28, 2014
@@ -29,13 +29,13 @@ namespace gtsam {
  * - measurement is direction of gravity in body frame bF
  * - reference is direction of gravity in navigation frame nG
  * This factor will give zero error if nRb * bF == nG
- * @ingroup navigation
+ * @addtogroup Navigation
  */
 class AttitudeFactor {
 
 protected:
 
-  Unit3 nZ_, bRef_; ///< Position measurement in
+  const Unit3 nZ_, bRef_; ///< Position measurement in
 
 public:
 
@@ -54,41 +54,21 @@ public:
 
   /** vector of errors */
   Vector attitudeError(const Rot3& p,
-      OptionalJacobian<2,3> H = {}) const;
-
-  const Unit3& nZ() const {
-    return nZ_;
-  }
-  const Unit3& bRef() const {
-    return bRef_;
-  }
-
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
-  /** Serialization function */
-  friend class boost::serialization::access;
-  template<class ARCHIVE>
-  void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-    ar & boost::serialization::make_nvp("nZ_",  nZ_);
-    ar & boost::serialization::make_nvp("bRef_", bRef_);
-  }
-#endif
+      OptionalJacobian<2,3> H = boost::none) const;
 };
 
 /**
  * Version of AttitudeFactor for Rot3
- * @ingroup navigation
+ * @addtogroup Navigation
  */
-class GTSAM_EXPORT Rot3AttitudeFactor: public NoiseModelFactorN<Rot3>, public AttitudeFactor {
+class GTSAM_EXPORT Rot3AttitudeFactor: public NoiseModelFactor1<Rot3>, public AttitudeFactor {
 
-  typedef NoiseModelFactorN<Rot3> Base;
+  typedef NoiseModelFactor1<Rot3> Base;
 
 public:
 
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
-
   /// shorthand for a smart pointer to a factor
-  typedef std::shared_ptr<Rot3AttitudeFactor> shared_ptr;
+  typedef boost::shared_ptr<Rot3AttitudeFactor> shared_ptr;
 
   /// Typedef to this class
   typedef Rot3AttitudeFactor This;
@@ -97,7 +77,7 @@ public:
   Rot3AttitudeFactor() {
   }
 
-  ~Rot3AttitudeFactor() override {
+  virtual ~Rot3AttitudeFactor() {
   }
 
   /**
@@ -113,40 +93,42 @@ public:
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
   /** print */
-  void print(const std::string& s = "", const KeyFormatter& keyFormatter =
-                                            DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s, const KeyFormatter& keyFormatter =
+      DefaultKeyFormatter) const;
 
   /** equals */
-  bool equals(const NonlinearFactor& expected, double tol = 1e-9) const override;
+  virtual bool equals(const NonlinearFactor& expected, double tol = 1e-9) const;
 
   /** vector of errors */
-  Vector evaluateError(const Rot3& nRb, OptionalMatrixType H) const override {
+  virtual Vector evaluateError(const Rot3& nRb, //
+      boost::optional<Matrix&> H = boost::none) const {
     return attitudeError(nRb, H);
+  }
+  Unit3 nZ() const {
+    return nZ_;
+  }
+  Unit3 bRef() const {
+    return bRef_;
   }
 
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-    // NoiseModelFactor1 instead of NoiseModelFactorN for backward compatibility
-    ar & boost::serialization::make_nvp("NoiseModelFactor1",
-        boost::serialization::base_object<Base>(*this));
-    ar & boost::serialization::make_nvp("AttitudeFactor",
-        boost::serialization::base_object<AttitudeFactor>(*this));
+    ar
+        & boost::serialization::make_nvp("NoiseModelFactor1",
+            boost::serialization::base_object<Base>(*this));
+    ar & BOOST_SERIALIZATION_NVP(nZ_);
+    ar & BOOST_SERIALIZATION_NVP(bRef_);
   }
-#endif
-
-public:
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /// traits
@@ -154,20 +136,17 @@ template<> struct traits<Rot3AttitudeFactor> : public Testable<Rot3AttitudeFacto
 
 /**
  * Version of AttitudeFactor for Pose3
- * @ingroup navigation
+ * @addtogroup Navigation
  */
-class GTSAM_EXPORT Pose3AttitudeFactor: public NoiseModelFactorN<Pose3>,
+class GTSAM_EXPORT Pose3AttitudeFactor: public NoiseModelFactor1<Pose3>,
     public AttitudeFactor {
 
-  typedef NoiseModelFactorN<Pose3> Base;
+  typedef NoiseModelFactor1<Pose3> Base;
 
 public:
 
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
-
   /// shorthand for a smart pointer to a factor
-  typedef std::shared_ptr<Pose3AttitudeFactor> shared_ptr;
+  typedef boost::shared_ptr<Pose3AttitudeFactor> shared_ptr;
 
   /// Typedef to this class
   typedef Pose3AttitudeFactor This;
@@ -176,7 +155,7 @@ public:
   Pose3AttitudeFactor() {
   }
 
-  ~Pose3AttitudeFactor() override {
+  virtual ~Pose3AttitudeFactor() {
   }
 
   /**
@@ -192,20 +171,21 @@ public:
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this)));
   }
 
   /** print */
-  void print(const std::string& s = "", const KeyFormatter& keyFormatter =
-                                            DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s, const KeyFormatter& keyFormatter =
+      DefaultKeyFormatter) const;
 
   /** equals */
-  bool equals(const NonlinearFactor& expected, double tol = 1e-9) const override;
+  virtual bool equals(const NonlinearFactor& expected, double tol = 1e-9) const;
 
   /** vector of errors */
-  Vector evaluateError(const Pose3& nTb, OptionalMatrixType H) const override {
+  virtual Vector evaluateError(const Pose3& nTb, //
+      boost::optional<Matrix&> H = boost::none) const {
     Vector e = attitudeError(nTb.rotation(), H);
     if (H) {
       Matrix H23 = *H;
@@ -214,24 +194,25 @@ public:
     }
     return e;
   }
+  Unit3 nZ() const {
+    return nZ_;
+  }
+  Unit3 bRef() const {
+    return bRef_;
+  }
 
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-    // NoiseModelFactor1 instead of NoiseModelFactorN for backward compatibility
-    ar & boost::serialization::make_nvp("NoiseModelFactor1",
-        boost::serialization::base_object<Base>(*this));
-    ar & boost::serialization::make_nvp("AttitudeFactor",
-        boost::serialization::base_object<AttitudeFactor>(*this));
+    ar
+        & boost::serialization::make_nvp("NoiseModelFactor1",
+            boost::serialization::base_object<Base>(*this));
+    ar & BOOST_SERIALIZATION_NVP(nZ_);
+    ar & BOOST_SERIALIZATION_NVP(bRef_);
   }
-#endif
-
-public:
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 /// traits

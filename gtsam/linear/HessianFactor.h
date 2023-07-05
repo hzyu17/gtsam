@@ -23,6 +23,7 @@
 #include <gtsam/base/SymmetricBlockMatrix.h>
 #include <gtsam/base/FastVector.h>
 
+#include <boost/make_shared.hpp>
 
 namespace gtsam {
 
@@ -106,7 +107,7 @@ namespace gtsam {
 
     typedef GaussianFactor Base; ///< Typedef to base class
     typedef HessianFactor This; ///< Typedef to this class
-    typedef std::shared_ptr<This> shared_ptr; ///< A shared_ptr to this class
+    typedef boost::shared_ptr<This> shared_ptr; ///< A shared_ptr to this class
     typedef SymmetricBlockMatrix::Block Block; ///< A block from the Hessian matrix
     typedef SymmetricBlockMatrix::constBlock constBlock; ///< A block from the Hessian matrix (const version)
 
@@ -131,7 +132,7 @@ namespace gtsam {
      * term, and f the constant term.
      * JacobianFactor error is \f[ 0.5* (Ax-b)' M (Ax-b) = 0.5*x'A'MAx - x'A'Mb + 0.5*b'Mb \f]
      * HessianFactor  error is \f[ 0.5*(x'Gx - 2x'g + f) = 0.5*x'Gx    - x'*g   + 0.5*f    \f]
-     * So, with \f$ A = [A1 A2] \f$ and \f$ G=A'*M*A = [A1';A2']*M*[A1 A2] \f$ we have
+     * So, with \f$ A = [A1 A2] \f$ and \f$ G=A*'M*A = [A1';A2']*M*[A1 A2] \f$ we have
      \code
       n1*n1 G11 = A1'*M*A1
       n1*n2 G12 = A1'*M*A2
@@ -158,7 +159,7 @@ namespace gtsam {
      * quadratic term (the Hessian matrix) provided in row-order, gs the pieces
      * of the linear vector term, and f the constant term.
      */
-    HessianFactor(const KeyVector& js, const std::vector<Matrix>& Gs,
+    HessianFactor(const std::vector<Key>& js, const std::vector<Matrix>& Gs,
         const std::vector<Vector>& gs, double f);
 
     /** Constructor with an arbitrary number of keys and with the augmented information matrix
@@ -175,41 +176,31 @@ namespace gtsam {
 
     /** Combine a set of factors into a single dense HessianFactor */
     explicit HessianFactor(const GaussianFactorGraph& factors,
-      const Scatter& scatter);
-
-    /** Combine a set of factors into a single dense HessianFactor */
-    explicit HessianFactor(const GaussianFactorGraph& factors)
-        : HessianFactor(factors, Scatter(factors)) {}
+      boost::optional<const Scatter&> scatter = boost::none);
 
     /** Destructor */
-    ~HessianFactor() override {}
+    virtual ~HessianFactor() {}
 
     /** Clone this HessianFactor */
-    GaussianFactor::shared_ptr clone() const override {
-      return std::make_shared<HessianFactor>(*this); }
+    virtual GaussianFactor::shared_ptr clone() const {
+      return boost::make_shared<HessianFactor>(*this); }
 
     /** Print the factor for debugging and testing (implementing Testable) */
-    void print(const std::string& s = "",
-        const KeyFormatter& formatter = DefaultKeyFormatter) const override;
+    virtual void print(const std::string& s = "",
+        const KeyFormatter& formatter = DefaultKeyFormatter) const;
 
     /** Compare to another factor for testing (implementing Testable) */
-    bool equals(const GaussianFactor& lf, double tol = 1e-9) const override;
+    virtual bool equals(const GaussianFactor& lf, double tol = 1e-9) const;
 
-    /// HybridValues simply extracts the \class VectorValues and calls error.
-    using GaussianFactor::error;
-
-    /** 
-     * Evaluate the factor error f(x). 
-     * returns 0.5*[x -1]'*H*[x -1] (also see constructor documentation)
-     */
-    double error(const VectorValues& c) const override;
+    /** Evaluate the factor error f(x), see above. */
+    virtual double error(const VectorValues& c) const; /** 0.5*[x -1]'*H*[x -1] (also see constructor documentation) */
 
     /** Return the dimension of the variable pointed to by the given key iterator
      * todo: Remove this in favor of keeping track of dimensions with variables?
      * @param variable An iterator pointing to the slot in this factor.  You can
      * use, for example, begin() + 2 to get the 3rd variable in this factor.
      */
-    DenseIndex getDim(const_iterator variable) const override {
+    virtual DenseIndex getDim(const_iterator variable) const {
       return info_.getDim(std::distance(begin(), variable));
     }
 
@@ -221,7 +212,10 @@ namespace gtsam {
      * stored stored in this factor.
      * @return a HessianFactor with negated Hessian matrices
      */
-    GaussianFactor::shared_ptr negate() const override;
+    virtual GaussianFactor::shared_ptr negate() const;
+
+    /** Check if the factor is empty.  TODO: How should this be defined? */
+    virtual bool empty() const { return size() == 0 /*|| rows() == 0*/; }
 
     /** Return the constant term \f$ f \f$ as described above
      * @return The constant term \f$ f \f$
@@ -282,7 +276,7 @@ namespace gtsam {
      * representation of the augmented information matrix, which stores only the
      * upper triangle.
      */
-    Matrix augmentedInformation() const override;
+    virtual Matrix augmentedInformation() const;
 
     /// Return self-adjoint view onto the information matrix (NOT augmented).
     Eigen::SelfAdjointView<SymmetricBlockMatrix::constBlock, Eigen::Upper> informationView() const;
@@ -290,36 +284,33 @@ namespace gtsam {
     /** Return the non-augmented information matrix represented by this
      * GaussianFactor.
      */
-    Matrix information() const override;
+    virtual Matrix information() const;
 
-    /// Add the current diagonal to a VectorValues instance
-    void hessianDiagonalAdd(VectorValues& d) const override;
-
-    /// Using the base method
-    using Base::hessianDiagonal;
+    /// Return the diagonal of the Hessian for this factor
+    virtual VectorValues hessianDiagonal() const;
 
     /// Raw memory access version of hessianDiagonal
-    void hessianDiagonal(double* d) const override;
+    virtual void hessianDiagonal(double* d) const;
 
     /// Return the block diagonal of the Hessian for this factor
-    std::map<Key,Matrix> hessianBlockDiagonal() const override;
+    virtual std::map<Key,Matrix> hessianBlockDiagonal() const;
 
     /// Return (dense) matrix associated with factor
-    std::pair<Matrix, Vector> jacobian() const override;
+    virtual std::pair<Matrix, Vector> jacobian() const;
 
     /**
      * Return (dense) matrix associated with factor
      * The returned system is an augmented matrix: [A b]
      * @param set weight to use whitening to bake in weights
      */
-    Matrix augmentedJacobian() const override;
+    virtual Matrix augmentedJacobian() const;
 
     /** Update an information matrix by adding the information corresponding to this factor
      * (used internally during elimination).
      * @param keys THe ordered vector of keys for the information matrix to be updated
      * @param info The information matrix to be updated
      */
-    void updateHessian(const KeyVector& keys, SymmetricBlockMatrix* info) const override;
+    void updateHessian(const FastVector<Key>& keys, SymmetricBlockMatrix* info) const;
 
     /** Update another Hessian factor
      * @param other the HessianFactor to be updated
@@ -330,30 +321,39 @@ namespace gtsam {
     }
 
     /** y += alpha * A'*A*x */
-    void multiplyHessianAdd(double alpha, const VectorValues& x, VectorValues& y) const override;
+    void multiplyHessianAdd(double alpha, const VectorValues& x, VectorValues& y) const;
 
     /// eta for Hessian
-    VectorValues gradientAtZero() const override;
+    VectorValues gradientAtZero() const;
 
     /// Raw memory access version of gradientAtZero
-    void gradientAtZero(double* d) const override;
+    virtual void gradientAtZero(double* d) const;
 
     /**
      * Compute the gradient at a key:
-     *  \f$ \grad f(x_i) = \sum_j G_ij*x_j - g_i \f$
+     *      \grad f(x_i) = \sum_j G_ij*x_j - g_i
      */
-    Vector gradient(Key key, const VectorValues& x) const override;
+    Vector gradient(Key key, const VectorValues& x) const;
 
     /**
      *  In-place elimination that returns a conditional on (ordered) keys specified, and leaves
      *  this factor to be on the remaining keys (separator) only. Does dense partial Cholesky.
      */
-    std::shared_ptr<GaussianConditional> eliminateCholesky(const Ordering& keys);
+    boost::shared_ptr<GaussianConditional> eliminateCholesky(const Ordering& keys);
 
       /// Solve the system A'*A delta = A'*b in-place, return delta as VectorValues
     VectorValues solve();
 
- private:
+
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+    /// @name Deprecated
+    /// @{
+    const SymmetricBlockMatrix& matrixObject() const { return info_; }
+    /// @}
+#endif
+
+  private:
+
     /// Allocate for given scatter pattern
     void Allocate(const Scatter& scatter);
 
@@ -363,7 +363,6 @@ namespace gtsam {
     friend class NonlinearFactorGraph;
     friend class NonlinearClusterTree;
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
     /** Serialization function */
     friend class boost::serialization::access;
     template<class ARCHIVE>
@@ -371,7 +370,6 @@ namespace gtsam {
       ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(GaussianFactor);
       ar & BOOST_SERIALIZATION_NVP(info_);
     }
-#endif
   };
 
 /**
@@ -389,8 +387,8 @@ namespace gtsam {
 *   @param keys The variables to eliminate and their elimination ordering
 *   @return The conditional and remaining factor
 *
-*   \ingroup LinearSolving */
-GTSAM_EXPORT std::pair<std::shared_ptr<GaussianConditional>, std::shared_ptr<HessianFactor> >
+*   \addtogroup LinearSolving */
+GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<HessianFactor> >
   EliminateCholesky(const GaussianFactorGraph& factors, const Ordering& keys);
 
 /**
@@ -407,8 +405,8 @@ GTSAM_EXPORT std::pair<std::shared_ptr<GaussianConditional>, std::shared_ptr<Hes
 *   @param keys The variables to eliminate and their elimination ordering
 *   @return The conditional and remaining factor
 *
-*   \ingroup LinearSolving */
-GTSAM_EXPORT std::pair<std::shared_ptr<GaussianConditional>, std::shared_ptr<GaussianFactor> >
+*   \addtogroup LinearSolving */
+GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<GaussianFactor> >
   EliminatePreferCholesky(const GaussianFactorGraph& factors, const Ordering& keys);
 
 /// traits

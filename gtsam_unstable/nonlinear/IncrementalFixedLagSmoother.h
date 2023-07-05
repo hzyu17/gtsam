@@ -20,9 +20,8 @@
 // \callgraph
 #pragma once
 
-#include <gtsam/nonlinear/FixedLagSmoother.h>
+#include <gtsam_unstable/nonlinear/FixedLagSmoother.h>
 #include <gtsam/nonlinear/ISAM2.h>
-#include "gtsam_unstable/dllexport.h"
 
 namespace gtsam {
 
@@ -36,42 +35,40 @@ class GTSAM_UNSTABLE_EXPORT IncrementalFixedLagSmoother: public FixedLagSmoother
 public:
 
   /// Typedef for a shared pointer to an Incremental Fixed-Lag Smoother
-  typedef std::shared_ptr<IncrementalFixedLagSmoother> shared_ptr;
+  typedef boost::shared_ptr<IncrementalFixedLagSmoother> shared_ptr;
 
   /** default constructor */
   IncrementalFixedLagSmoother(double smootherLag = 0.0,
-      const ISAM2Params& parameters = DefaultISAM2Params()) :
+      const ISAM2Params& parameters = ISAM2Params()) :
       FixedLagSmoother(smootherLag), isam_(parameters) {
   }
 
   /** destructor */
-  ~IncrementalFixedLagSmoother() override {
+  virtual ~IncrementalFixedLagSmoother() {
   }
 
   /** Print the factor for debugging and testing (implementing Testable) */
-  void print(const std::string& s = "IncrementalFixedLagSmoother:\n",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s = "IncrementalFixedLagSmoother:\n",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /** Check if two IncrementalFixedLagSmoother Objects are equal */
-  bool equals(const FixedLagSmoother& rhs, double tol = 1e-9) const override;
+  virtual bool equals(const FixedLagSmoother& rhs, double tol = 1e-9) const;
 
   /**
    * Add new factors, updating the solution and re-linearizing as needed.
    * @param newFactors new factors on old and/or new variables
    * @param newTheta new values for new variables only
    * @param timestamps an (optional) map from keys to real time stamps
-   * @param factorsToRemove an (optional) list of factors to remove.
    */
   Result update(const NonlinearFactorGraph& newFactors = NonlinearFactorGraph(),
-                const Values& newTheta = Values(), //
-                const KeyTimestampMap& timestamps = KeyTimestampMap(),
-                const FactorIndices& factorsToRemove = FactorIndices()) override;
+      const Values& newTheta = Values(), //
+      const KeyTimestampMap& timestamps = KeyTimestampMap());
 
   /** Compute an estimate from the incomplete linear delta computed during the last update.
    * This delta is incomplete because it was not updated below wildfire_threshold.  If only
    * a single variable is needed, it is faster to call calculateEstimate(const KEY&).
    */
-  Values calculateEstimate() const override {
+  Values calculateEstimate() const {
     return isam_.calculateEstimate();
   }
 
@@ -111,34 +108,17 @@ public:
     return isam_.marginalCovariance(key);
   }
 
-  /// Get results of latest isam2 update
-  const ISAM2Result& getISAM2Result() const{ return isamResult_; }
-
-  /// Get the iSAM2 object which is used for the inference internally
-  const ISAM2& getISAM2() const { return isam_; }
-
 protected:
-
-  /** Create default parameters */
-  static ISAM2Params DefaultISAM2Params() {
-    ISAM2Params params;
-    params.findUnusedFactorSlots = true;
-    return params;
-  }
-
   /** An iSAM2 object used to perform inference. The smoother lag is controlled
    * by what factors are removed each iteration */
   ISAM2 isam_;
-
-  /** Store results of latest isam2 update */
-  ISAM2Result isamResult_;
 
   /** Erase any keys associated with timestamps before the provided time */
   void eraseKeysBefore(double timestamp);
 
   /** Fill in an iSAM2 ConstrainedKeys structure such that the provided keys are eliminated before all others */
   void createOrderingConstraints(const KeyVector& marginalizableKeys,
-      std::optional<FastMap<Key, int> >& constrainedKeys) const;
+      boost::optional<FastMap<Key, int> >& constrainedKeys) const;
 
 private:
   /** Private methods for printing debug information */

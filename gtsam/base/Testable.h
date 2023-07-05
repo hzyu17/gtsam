@@ -23,7 +23,7 @@
  *     void print(const std::string& name) const = 0;
  *
  * equality up to tolerance
- * tricky to implement, see PriorFactor for an example
+ * tricky to implement, see NoiseModelFactor1 for an example
  * equals is not supposed to print out *anything*, just return true|false
  *     bool equals(const Derived& expected, double tol) const = 0;
  *
@@ -33,11 +33,9 @@
 
 #pragma once
 
-#include <gtsam/base/concepts.h>
-
-#include <functional>
-#include <iostream>
-#include <memory>
+#include <boost/shared_ptr.hpp>
+#include <boost/concept_check.hpp>
+#include <stdio.h>
 #include <string>
 
 #define GTSAM_PRINT(x)((x).print(#x))
@@ -52,7 +50,7 @@ namespace gtsam {
    * tests and in generic algorithms.
    *
    * See macros for details on using this structure
-   * @ingroup base
+   * @addtogroup base
    * @tparam T is the objectype this constrains to be testable - assumes print() and equals()
    */
   template <class T>
@@ -74,10 +72,10 @@ namespace gtsam {
   }; // \ Testable
 
   inline void print(float v, const std::string& s = "") {
-    std::cout << (s.empty() ? s : s + " ") << v << std::endl;
+    printf("%s%f\n",s.c_str(),v);
   }
   inline void print(double v, const std::string& s = "") {
-    std::cout << (s.empty() ? s : s + " ") << v << std::endl;
+    printf("%s%lf\n",s.c_str(),v);
   }
 
   /** Call equal on the object */
@@ -109,7 +107,7 @@ namespace gtsam {
    * Template to create a binary predicate
    */
   template<class V>
-  struct equals : public std::function<bool(const V&, const V&)> {
+  struct equals : public std::binary_function<const V&, const V&, bool> {
     double tol_;
     equals(double tol = 1e-9) : tol_(tol) {}
     bool operator()(const V& expected, const V& actual) {
@@ -121,10 +119,10 @@ namespace gtsam {
    * Binary predicate on shared pointers
    */
   template<class V>
-  struct equals_star : public std::function<bool(const std::shared_ptr<V>&, const std::shared_ptr<V>&)> {
+  struct equals_star : public std::binary_function<const boost::shared_ptr<V>&, const boost::shared_ptr<V>&, bool> {
     double tol_;
     equals_star(double tol = 1e-9) : tol_(tol) {}
-    bool operator()(const std::shared_ptr<V>& expected, const std::shared_ptr<V>& actual) {
+    bool operator()(const boost::shared_ptr<V>& expected, const boost::shared_ptr<V>& actual) {
       if (!actual && !expected) return true;
       return actual && expected && traits<V>::Equals(*actual,*expected, tol_);
     }
@@ -152,7 +150,7 @@ namespace gtsam {
   struct Testable {
 
     // Check that T has the necessary methods
-    GTSAM_CONCEPT_ASSERT(HasTestablePrereqs<T>);
+    BOOST_CONCEPT_ASSERT((HasTestablePrereqs<T>));
 
     static void Print(const T& m, const std::string& str = "") {
       m.print(str);
@@ -171,7 +169,7 @@ namespace gtsam {
  *
  * NOTE: intentionally not in the gtsam namespace to allow for classes not in
  * the gtsam namespace to be more easily enforced as testable
- * @deprecated please use GTSAM_CONCEPT_ASSERT and
+ * @deprecated please use BOOST_CONCEPT_ASSERT and
  */
 #define GTSAM_CONCEPT_TESTABLE_INST(T) template class gtsam::IsTestable<T>;
-#define GTSAM_CONCEPT_TESTABLE_TYPE(T) using _gtsam_Testable_##T = gtsam::IsTestable<T>;
+#define GTSAM_CONCEPT_TESTABLE_TYPE(T) typedef gtsam::IsTestable<T> _gtsam_Testable_##T;

@@ -23,7 +23,7 @@
 #include <gtsam/nonlinear/NonlinearOptimizer.h>
 #include <gtsam/nonlinear/LevenbergMarquardtParams.h>
 #include <gtsam/linear/VectorValues.h>
-#include <chrono>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 class NonlinearOptimizerMoreOptimizationTest;
 
@@ -36,14 +36,12 @@ class GTSAM_EXPORT LevenbergMarquardtOptimizer: public NonlinearOptimizer {
 
 protected:
   const LevenbergMarquardtParams params_; ///< LM parameters
-  
-  // startTime_ is a chrono time point
-  std::chrono::time_point<std::chrono::high_resolution_clock> startTime_; ///< time when optimization started
+  boost::posix_time::ptime startTime_;
 
   void initTime();
 
 public:
-  typedef std::shared_ptr<LevenbergMarquardtOptimizer> shared_ptr;
+  typedef boost::shared_ptr<LevenbergMarquardtOptimizer> shared_ptr;
 
   /// @name Constructors/Destructor
   /// @{
@@ -71,7 +69,7 @@ public:
                               const LevenbergMarquardtParams& params = LevenbergMarquardtParams());
 
   /** Virtual destructor */
-  ~LevenbergMarquardtOptimizer() override {
+  virtual ~LevenbergMarquardtOptimizer() {
   }
 
   /// @}
@@ -96,9 +94,9 @@ public:
   /// @name Advanced interface
   /// @{
 
-  /** 
-   * Perform a single iteration, returning GaussianFactorGraph corresponding to 
-   * the linearized factor graph.
+  /** Perform a single iteration, returning a new NonlinearOptimizer class
+   * containing the updated variable assignments, which may be retrieved with
+   * values().
    */
   GaussianFactorGraph::shared_ptr iterate() override;
 

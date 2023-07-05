@@ -10,10 +10,8 @@
  * -------------------------------------------------------------------------- */
 
 /**
- * @file testSampler.cpp
- * @brief unit tests for Sampler class
+ * @file testSampler
  * @author Alex Cunningham
- * @author Frank Dellaert
  */
 
 #include <CppUnitLite/TestHarness.h>
@@ -24,15 +22,14 @@ using namespace gtsam;
 
 const double tol = 1e-5;
 
-static const Vector3 kSigmas(1.0, 0.1, 0.0);
-
 /* ************************************************************************* */
 TEST(testSampler, basic) {
-  auto model = noiseModel::Diagonal::Sigmas(kSigmas);
+  Vector sigmas = Vector3(1.0, 0.1, 0.0);
+  noiseModel::Diagonal::shared_ptr model = noiseModel::Diagonal::Sigmas(sigmas);
   char seed = 'A';
   Sampler sampler1(model, seed), sampler2(model, 1), sampler3(model, 1);
-  EXPECT(assert_equal(kSigmas, sampler1.sigmas()));
-  EXPECT(assert_equal(kSigmas, sampler2.sigmas()));
+  EXPECT(assert_equal(sigmas, sampler1.sigmas()));
+  EXPECT(assert_equal(sigmas, sampler2.sigmas()));
   EXPECT_LONGS_EQUAL(3, sampler1.dim());
   EXPECT_LONGS_EQUAL(3, sampler2.dim());
   Vector actual1 = sampler1.sample();
@@ -41,8 +38,5 @@ TEST(testSampler, basic) {
 }
 
 /* ************************************************************************* */
-int main() {
-  TestResult tr;
-  return TestRegistry::runAllTests(tr);
-}
+int main() { TestResult tr; return TestRegistry::runAllTests(tr); }
 /* ************************************************************************* */

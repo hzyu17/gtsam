@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -16,19 +16,25 @@
  * @date    Oct 26, 2013
  */
 
-#include <gtsam/base/timing.h>
 #include <gtsam/base/DSFVector.h>
 #include <gtsam_unstable/base/DSF.h>
-#include <gtsam/base/DSFMap.h>
+#include <gtsam_unstable/base/DSFMap.h>
 
-#include <fstream>
+#include <boost/random.hpp>
+#include <boost/timer.hpp>
+#include <boost/format.hpp>
+#include <boost/assign/std/vector.hpp>
+
 #include <iostream>
-#include <random>
+#include <fstream>
 #include <vector>
 #include <utility>
 
 using namespace std;
 using namespace gtsam;
+using namespace boost::assign;
+using boost::timer;
+using boost::format;
 
 int main(int argc, char* argv[]) {
 
@@ -37,7 +43,8 @@ int main(int argc, char* argv[]) {
   os << "images,points,matches,Base,Map,BTree" << endl;
 
   // loop over number of images
-  vector<size_t> ms {10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000};
+  vector<size_t> ms;
+  ms += 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000;
   for(size_t m: ms) {
     // We use volatile here to make these appear to the optimizing compiler as
     // if their values are only known at run-time.
@@ -49,81 +56,61 @@ int main(int argc, char* argv[]) {
     volatile double fpm = 0.5; // fraction of points matched
     volatile size_t nm = fpm * n * np; // number of matches
 
-    cout << "\nTesting with " << (int)m << " images, " << (int)N << " points, " << (int)nm << " matches\n";
+    cout << format("\nTesting with %1% images, %2% points, %3% matches\n")
+            % (int)m % (int)N % (int)nm;
     cout << "Generating " << nm << " matches" << endl;
-    std::mt19937 rng;
-    std::uniform_int_distribution<> rn(0, N - 1);
-
+    boost::variate_generator<boost::mt19937, boost::uniform_int<size_t> > rn(
+        boost::mt19937(), boost::uniform_int<size_t>(0, N - 1));
     typedef pair<size_t, size_t> Match;
     vector<Match> matches;
     matches.reserve(nm);
     for (size_t k = 0; k < nm; k++)
-      matches.push_back(Match(rn(rng), rn(rng)));
+      matches.push_back(Match(rn(), rn()));
 
-    os << (int)m << "," << (int)N << "," << (int)nm << ",";
+    os << format("%1%,%2%,%3%,") % (int)m % (int)N % (int)nm;
 
     {
       // DSFBase version
-      double dsftime = 0;
-      gttic_(dsftime);
+      timer tim;
       DSFBase dsf(N); // Allow for N keys
       for(const Match& m: matches)
         dsf.merge(m.first, m.second);
-      gttoc_(dsftime);
-      tictoc_getNode(dsftimeNode, dsftime);
-      dsftime = dsftimeNode->secs();
-      os << dsftime << ",";
-      cout << "DSFBase: " << dsftime << " s" << endl;
-      tictoc_reset_();
+      os << tim.elapsed() << ",";
+      cout << format("DSFBase: %1% s") % tim.elapsed() << endl;
     }
 
     {
       // DSFMap version
-      double dsftime = 0;
-      gttic_(dsftime);
+      timer tim;
       DSFMap<size_t> dsf;
       for(const Match& m: matches)
         dsf.merge(m.first, m.second);
-      gttoc_(dsftime);
-      tictoc_getNode(dsftimeNode, dsftime);
-      dsftime = dsftimeNode->secs();
-      os << dsftime << endl;
-      cout << "DSFMap: " << dsftime << " s" << endl;
-      tictoc_reset_();
+      os << tim.elapsed() << endl;
+      cout << format("DSFMap: %1% s") % tim.elapsed() << endl;
     }
 
     if (false) {
       // DSF version, functional
-      double dsftime = 0;
-      gttic_(dsftime);
+      timer tim;
       DSF<size_t> dsf;
       for (size_t j = 0; j < N; j++)
         dsf = dsf.makeSet(j);
       for(const Match& m: matches)
         dsf = dsf.makeUnion(m.first, m.second);
-      gttoc_(dsftime);
-      tictoc_getNode(dsftimeNode, dsftime);
-      dsftime = dsftimeNode->secs();
-      os << dsftime << endl;
-      cout << "DSF functional: " << dsftime << " s" << endl;
-      tictoc_reset_();
+      os << tim.elapsed() << endl;
+      cout << format("DSF functional: %1% s") % tim.elapsed() << endl;
     }
 
     if (false) {
       // DSF version, in place - always slower - use functional !
-      double dsftime = 0;
-      gttic_(dsftime);
+      timer tim;
       DSF<size_t> dsf;
       for (size_t j = 0; j < N; j++)
         dsf.makeSetInPlace(j);
       for(const Match& m: matches)
         dsf.makeUnionInPlace(m.first, m.second);
-      gttoc_(dsftime);
-      tictoc_getNode(dsftimeNode, dsftime);
-      dsftime = dsftimeNode->secs();
-      os << dsftime << ",";
-      cout << "DSF in-place: " << dsftime << " s" << endl;
-      tictoc_reset_();
+      os << tim.elapsed() << ",";
+      cout << format("DSF in-place: %1% s") % tim.elapsed() << endl;
     }
 
   }

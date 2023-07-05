@@ -17,8 +17,6 @@
  * @date     2/11/16
  */
 
-#pragma once
-
 #include <gtsam_unstable/linear/InfeasibleInitialValues.h>
 
 /******************************************************************************/
@@ -45,7 +43,7 @@ namespace gtsam {
  *
  * We want the minimum of all those alphas among all inactive inequality.
  */
-Template std::tuple<double, int> This::computeStepSize(
+Template boost::tuple<double, int> This::computeStepSize(
     const InequalityFactorGraph& workingSet, const VectorValues& xk,
     const VectorValues& p, const double& maxAlpha) const {
   double minAlpha = maxAlpha;
@@ -74,7 +72,7 @@ Template std::tuple<double, int> This::computeStepSize(
       }
     }
   }
-  return std::make_tuple(minAlpha, closestFactorIx);
+  return boost::make_tuple(minAlpha, closestFactorIx);
 }
 
 /******************************************************************************/
@@ -149,9 +147,9 @@ Template JacobianFactor::shared_ptr This::createDualFactor(
   if (Aterms.size() > 0) {
     Vector b = problem_.costGradient(key, delta);
     // to compute the least-square approximation of dual variables
-    return std::make_shared<JacobianFactor>(Aterms, b);
+    return boost::make_shared<JacobianFactor>(Aterms, b);
   } else {
-    return nullptr;
+    return boost::make_shared<JacobianFactor>();
   }
 }
 
@@ -167,13 +165,14 @@ Template JacobianFactor::shared_ptr This::createDualFactor(
  *  if lambda = 0  you are on the constraint
  *  if lambda > 0  you are violating the constraint.
  */
-Template GaussianFactorGraph This::buildDualGraph(
+Template GaussianFactorGraph::shared_ptr This::buildDualGraph(
     const InequalityFactorGraph& workingSet, const VectorValues& delta) const {
-  GaussianFactorGraph dualGraph;
+  GaussianFactorGraph::shared_ptr dualGraph(new GaussianFactorGraph());
   for (Key key : constrainedKeys_) {
     // Each constrained key becomes a factor in the dual graph
-    auto dualFactor = createDualFactor(key, workingSet, delta);
-    if (dualFactor) dualGraph.push_back(dualFactor);
+    JacobianFactor::shared_ptr dualFactor =
+        createDualFactor(key, workingSet, delta);
+    if (!dualFactor->empty()) dualGraph->push_back(dualFactor);
   }
   return dualGraph;
 }
@@ -194,16 +193,19 @@ This::buildWorkingGraph(const InequalityFactorGraph& workingSet,
 Template typename This::State This::iterate(
     const typename This::State& state) const {
   // Algorithm 16.3 from Nocedal06book.
-  // Solve with the current working set eqn 16.39, but solve for x not p
-  auto workingGraph = buildWorkingGraph(state.workingSet, state.values);
+  // Solve with the current working set eqn 16.39, but instead of solving for p
+  // solve for x
+  GaussianFactorGraph workingGraph =
+      buildWorkingGraph(state.workingSet, state.values);
   VectorValues newValues = workingGraph.optimize();
   // If we CAN'T move further
   // if p_k = 0 is the original condition, modified by Duy to say that the state
   // update is zero.
   if (newValues.equals(state.values, 1e-7)) {
     // Compute lambda from the dual graph
-    auto dualGraph = buildDualGraph(state.workingSet, newValues);
-    VectorValues duals = dualGraph.optimize();
+    GaussianFactorGraph::shared_ptr dualGraph = buildDualGraph(state.workingSet,
+        newValues);
+    VectorValues duals = dualGraph->optimize();
     int leavingFactor = identifyLeavingConstraint(state.workingSet, duals);
     // If all inequality constraints are satisfied: We have the solution!!
     if (leavingFactor < 0) {
@@ -219,8 +221,10 @@ Template typename This::State This::iterate(
   } else {
     // If we CAN make some progress, i.e. p_k != 0
     // Adapt stepsize if some inactive constraints complain about this move
+    double alpha;
+    int factorIx;
     VectorValues p = newValues - state.values;
-    const auto [alpha, factorIx] = // using 16.41
+    boost::tie(alpha, factorIx) = // using 16.41
         computeStepSize(state.workingSet, state.values, p, POLICY::maxAlpha);
     // also add to the working set the one that complains the most
     InequalityFactorGraph newWorkingSet = state.workingSet;
@@ -248,7 +252,7 @@ Template InequalityFactorGraph This::identifyActiveConstraints(
       double error = workingFactor->error(initialValues);
       // Safety guard. This should not happen unless users provide a bad init
       if (error > 0) throw InfeasibleInitialValues();
-      if (std::abs(error) < 1e-7)
+      if (fabs(error) < 1e-7)
         workingFactor->activate();
       else
         workingFactor->inactivate();

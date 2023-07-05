@@ -17,8 +17,6 @@
  * @date     6/16/16
  */
 
-#pragma once
-
 #include <gtsam_unstable/linear/LP.h>
 #include <gtsam_unstable/linear/ActiveSetSolver.h>
 #include <gtsam_unstable/linear/LPInitSolver.h>
@@ -60,7 +58,7 @@ struct LPPolicy {
     allKeys.merge(lp.equalities.keys());
     allKeys.merge(KeySet(lp.cost.keys()));
     // Add corresponding factors for all variables that are not explicitly in
-    // the cost function. Gradients of the cost function wrt to these variables
+    // the cost function. Gradients of the cost function wrt to these variables 
     // are zero (g=0), so b=xk
     if (lp.cost.keys().size() != allKeys.size()) {
       KeySet difference;

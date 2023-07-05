@@ -19,6 +19,7 @@
  */
 
 #include <gtsam/linear/GaussianFactorGraph.h>
+#include <gtsam/linear/VectorValues.h>
 #include <gtsam/linear/GaussianBayesTree.h>
 #include <gtsam/linear/GaussianEliminationTree.h>
 #include <gtsam/linear/GaussianJunctionTree.h>
@@ -60,27 +61,11 @@ namespace gtsam {
       for (GaussianFactor::const_iterator it = gf->begin(); it != gf->end(); it++) {
         map<Key,size_t>::iterator it2 = spec.find(*it);
         if ( it2 == spec.end() ) {
-          spec.emplace(*it, gf->getDim(it));
+          spec.insert(make_pair(*it, gf->getDim(it)));
         }
       }
     }
     return spec;
-  }
-
-  /* ************************************************************************* */
-  double GaussianFactorGraph::error(const VectorValues& x) const {
-    double total_error = 0.;
-    for(const sharedFactor& factor: *this){
-      if(factor)
-        total_error += factor->error(x);
-    }
-    return total_error;
-  }
-
-  /* ************************************************************************* */
-  double GaussianFactorGraph::probPrime(const VectorValues& c) const {
-    // NOTE the 0.5 constant is handled by the factor error.
-    return exp(-error(c));
   }
 
   /* ************************************************************************* */
@@ -115,162 +100,123 @@ namespace gtsam {
   }
 
   /* ************************************************************************* */
-  using SparseTriplets = std::vector<std::tuple<int, int, double> >;
-  SparseTriplets GaussianFactorGraph::sparseJacobian(const Ordering& ordering,
-                                                     size_t& nrows,
-                                                     size_t& ncols) const {
-    gttic_(GaussianFactorGraph_sparseJacobian);
+  vector<boost::tuple<size_t, size_t, double> > GaussianFactorGraph::sparseJacobian() const {
     // First find dimensions of each variable
     typedef std::map<Key, size_t> KeySizeMap;
     KeySizeMap dims;
-    for (const auto& factor : *this) {
-      if (!static_cast<bool>(factor)) continue;
+    for (const sharedFactor& factor : *this) {
+      if (!static_cast<bool>(factor))
+        continue;
 
-      for (auto it = factor->begin(); it != factor->end(); ++it) {
-        dims[*it] = factor->getDim(it);
+      for (GaussianFactor::const_iterator key = factor->begin();
+          key != factor->end(); ++key) {
+        dims[*key] = factor->getDim(key);
       }
     }
 
     // Compute first scalar column of each variable
-    ncols = 0;
+    size_t currentColIndex = 0;
     KeySizeMap columnIndices = dims;
-    for (const auto key : ordering) {
-      columnIndices[key] = ncols;
-      ncols += dims[key];
+    for (const KeySizeMap::value_type& col : dims) {
+      columnIndices[col.first] = currentColIndex;
+      currentColIndex += dims[col.first];
     }
 
     // Iterate over all factors, adding sparse scalar entries
-    SparseTriplets entries;
-    entries.reserve(30 * size());
-    nrows = 0;
-    for (const auto& factor : *this) {
+    typedef boost::tuple<size_t, size_t, double> triplet;
+    vector<triplet> entries;
+    size_t row = 0;
+    for (const sharedFactor& factor : *this) {
       if (!static_cast<bool>(factor)) continue;
 
       // Convert to JacobianFactor if necessary
       JacobianFactor::shared_ptr jacobianFactor(
-          std::dynamic_pointer_cast<JacobianFactor>(factor));
+          boost::dynamic_pointer_cast<JacobianFactor>(factor));
       if (!jacobianFactor) {
         HessianFactor::shared_ptr hessian(
-            std::dynamic_pointer_cast<HessianFactor>(factor));
+            boost::dynamic_pointer_cast<HessianFactor>(factor));
         if (hessian)
           jacobianFactor.reset(new JacobianFactor(*hessian));
         else
-          throw std::invalid_argument(
-              "GaussianFactorGraph contains a factor that is neither a "
-              "JacobianFactor nor a HessianFactor.");
+          throw invalid_argument(
+              "GaussianFactorGraph contains a factor that is neither a JacobianFactor nor a HessianFactor.");
       }
 
       // Whiten the factor and add entries for it
       // iterate over all variables in the factor
       const JacobianFactor whitened(jacobianFactor->whiten());
-      for (auto key = whitened.begin(); key < whitened.end(); ++key) {
+      for (JacobianFactor::const_iterator key = whitened.begin();
+          key < whitened.end(); ++key) {
         JacobianFactor::constABlock whitenedA = whitened.getA(key);
         // find first column index for this key
         size_t column_start = columnIndices[*key];
-        for (size_t i = 0; i < (size_t)whitenedA.rows(); i++)
-          for (size_t j = 0; j < (size_t)whitenedA.cols(); j++) {
+        for (size_t i = 0; i < (size_t) whitenedA.rows(); i++)
+          for (size_t j = 0; j < (size_t) whitenedA.cols(); j++) {
             double s = whitenedA(i, j);
             if (std::abs(s) > 1e-12)
-              entries.emplace_back(nrows + i, column_start + j, s);
+              entries.push_back(boost::make_tuple(row + i, column_start + j, s));
           }
       }
 
       JacobianFactor::constBVector whitenedb(whitened.getb());
-      for (size_t i = 0; i < (size_t)whitenedb.size(); i++) {
-        double s = whitenedb(i);
-        if (std::abs(s) > 1e-12) entries.emplace_back(nrows + i, ncols, s);
-      }
+      size_t bcolumn = currentColIndex;
+      for (size_t i = 0; i < (size_t) whitenedb.size(); i++)
+        entries.push_back(boost::make_tuple(row + i, bcolumn, whitenedb(i)));
 
       // Increment row index
-      nrows += jacobianFactor->rows();
+      row += jacobianFactor->rows();
     }
-
-    ncols++;  // +1 for b-column
-    return entries;
-  }
-
-  /* ************************************************************************* */
-  SparseTriplets GaussianFactorGraph::sparseJacobian() const {
-    size_t nrows, ncols;
-    return sparseJacobian(Ordering(this->keys()), nrows, ncols);
+    return vector<triplet>(entries.begin(), entries.end());
   }
 
   /* ************************************************************************* */
   Matrix GaussianFactorGraph::sparseJacobian_() const {
-    gttic_(GaussianFactorGraph_sparseJacobian_matrix);
+
     // call sparseJacobian
-    auto result = sparseJacobian();
+    typedef boost::tuple<size_t, size_t, double> triplet;
+    vector<triplet> result = sparseJacobian();
 
     // translate to base 1 matrix
     size_t nzmax = result.size();
-    Matrix IJS(3, nzmax);
+    Matrix IJS(3,nzmax);
     for (size_t k = 0; k < result.size(); k++) {
-      const auto& entry = result[k];
-      IJS(0, k) = double(std::get<0>(entry) + 1);
-      IJS(1, k) = double(std::get<1>(entry) + 1);
-      IJS(2, k) = std::get<2>(entry);
+      const triplet& entry = result[k];
+      IJS(0,k) = double(entry.get<0>() + 1);
+      IJS(1,k) = double(entry.get<1>() + 1);
+      IJS(2,k) = entry.get<2>();
     }
     return IJS;
   }
 
   /* ************************************************************************* */
   Matrix GaussianFactorGraph::augmentedJacobian(
-      const Ordering& ordering) const {
+      boost::optional<const Ordering&> optionalOrdering) const {
     // combine all factors
-    JacobianFactor combined(*this, ordering);
-    return combined.augmentedJacobian();
-  }
-
-  /* ************************************************************************* */
-  Matrix GaussianFactorGraph::augmentedJacobian() const {
-    // combine all factors
-    JacobianFactor combined(*this);
+    JacobianFactor combined(*this, optionalOrdering);
     return combined.augmentedJacobian();
   }
 
   /* ************************************************************************* */
   pair<Matrix, Vector> GaussianFactorGraph::jacobian(
-      const Ordering& ordering) const {
-    Matrix augmented = augmentedJacobian(ordering);
-    return make_pair(augmented.leftCols(augmented.cols() - 1),
-        augmented.col(augmented.cols() - 1));
-  }
-
-  /* ************************************************************************* */
-  pair<Matrix, Vector> GaussianFactorGraph::jacobian() const {
-    Matrix augmented = augmentedJacobian();
+      boost::optional<const Ordering&> optionalOrdering) const {
+    Matrix augmented = augmentedJacobian(optionalOrdering);
     return make_pair(augmented.leftCols(augmented.cols() - 1),
         augmented.col(augmented.cols() - 1));
   }
 
   /* ************************************************************************* */
   Matrix GaussianFactorGraph::augmentedHessian(
-      const Ordering& ordering) const {
+      boost::optional<const Ordering&> optionalOrdering) const {
     // combine all factors and get upper-triangular part of Hessian
-    Scatter scatter(*this, ordering);
+    Scatter scatter(*this, optionalOrdering);
     HessianFactor combined(*this, scatter);
-    return combined.info().selfadjointView();
-  }
-
-  /* ************************************************************************* */
-  Matrix GaussianFactorGraph::augmentedHessian() const {
-    // combine all factors and get upper-triangular part of Hessian
-    Scatter scatter(*this);
-    HessianFactor combined(*this, scatter);
-    return combined.info().selfadjointView();
+    return combined.info().selfadjointView();;
   }
 
   /* ************************************************************************* */
   pair<Matrix, Vector> GaussianFactorGraph::hessian(
-      const Ordering& ordering) const {
-    Matrix augmented = augmentedHessian(ordering);
-    size_t n = augmented.rows() - 1;
-    return make_pair(augmented.topLeftCorner(n, n), augmented.topRightCorner(n, 1));
-  }
-
-  /* ************************************************************************* */
-  pair<Matrix, Vector> GaussianFactorGraph::hessian() const {
-    Matrix augmented = augmentedHessian();
+      boost::optional<const Ordering&> optionalOrdering) const {
+    Matrix augmented = augmentedHessian(optionalOrdering);
     size_t n = augmented.rows() - 1;
     return make_pair(augmented.topLeftCorner(n, n), augmented.topRightCorner(n, 1));
   }
@@ -280,7 +226,8 @@ namespace gtsam {
     VectorValues d;
     for (const sharedFactor& factor : *this) {
       if(factor){
-        factor->hessianDiagonalAdd(d);
+        VectorValues di = factor->hessianDiagonal();
+        d.addInPlace_(di);
       }
     }
     return d;
@@ -299,21 +246,15 @@ namespace gtsam {
         if (blocks.count(j))
           blocks[j] += Bj;
         else
-          blocks.emplace(j,Bj);
+          blocks.insert(make_pair(j,Bj));
       }
     }
     return blocks;
   }
 
-  /* ************************************************************************ */
-  VectorValues GaussianFactorGraph::optimize(const Eliminate& function) const {
-    gttic(GaussianFactorGraph_optimize);
-    return BaseEliminateable::eliminateMultifrontal(Ordering::COLAMD, function)
-        ->optimize();
-  }
-
   /* ************************************************************************* */
-  VectorValues GaussianFactorGraph::optimize(const Ordering& ordering, const Eliminate& function) const {
+  VectorValues GaussianFactorGraph::optimize(OptionalOrdering ordering, const Eliminate& function) const
+  {
     gttic(GaussianFactorGraph_optimize);
     return BaseEliminateable::eliminateMultifrontal(ordering, function)->optimize();
   }
@@ -345,10 +286,10 @@ namespace gtsam {
   /* ************************************************************************* */
   namespace {
     JacobianFactor::shared_ptr convertToJacobianFactorPtr(const GaussianFactor::shared_ptr &gf) {
-      JacobianFactor::shared_ptr result = std::dynamic_pointer_cast<JacobianFactor>(gf);
+      JacobianFactor::shared_ptr result = boost::dynamic_pointer_cast<JacobianFactor>(gf);
       if( !result )
         // Convert any non-Jacobian factors to Jacobians (e.g. Hessian -> Jacobian with Cholesky)
-        result = std::make_shared<JacobianFactor>(*gf);
+        result = boost::make_shared<JacobianFactor>(*gf);
       return result;
     }
   }
@@ -395,7 +336,7 @@ namespace gtsam {
 
     gttic(Compute_minimizing_step_size);
     // Compute minimizing step size
-    double step = -gradientSqNorm / gtsam::dot(Rg, Rg);
+    double step = -gradientSqNorm / dot(Rg, Rg);
     gttoc(Compute_minimizing_step_size);
 
     gttic(Compute_point);
@@ -442,7 +383,7 @@ namespace gtsam {
   bool hasConstraints(const GaussianFactorGraph& factors) {
     typedef JacobianFactor J;
     for (const GaussianFactor::shared_ptr& factor: factors) {
-      J::shared_ptr jacobian(std::dynamic_pointer_cast<J>(factor));
+      J::shared_ptr jacobian(boost::dynamic_pointer_cast<J>(factor));
       if (jacobian && jacobian->get_model() && jacobian->get_model()->isConstrained()) {
         return true;
       }
@@ -517,35 +458,6 @@ namespace gtsam {
       e.push_back(Ai->error_vector(x));
     }
     return e;
-  }
-
-  /* ************************************************************************* */
-  void GaussianFactorGraph::printErrors(
-      const VectorValues& values, const std::string& str,
-      const KeyFormatter& keyFormatter,
-      const std::function<bool(const Factor* /*factor*/,
-                               double /*whitenedError*/, size_t /*index*/)>&
-          printCondition) const {
-    cout << str << "size: " << size() << endl << endl;
-    for (size_t i = 0; i < (*this).size(); i++) {
-      const sharedFactor& factor = (*this)[i];
-      const double errorValue =
-          (factor != nullptr ? (*this)[i]->error(values) : .0);
-      if (!printCondition(factor.get(), errorValue, i))
-        continue;  // User-provided filter did not pass
-
-      stringstream ss;
-      ss << "Factor " << i << ": ";
-      if (factor == nullptr) {
-        cout << "nullptr"
-             << "\n";
-      } else {
-        factor->print(ss.str(), keyFormatter);
-        cout << "error = " << errorValue << "\n";
-      }
-      cout << endl;  // only one "endl" at end might be faster, \n for each
-                     // factor
-    }
   }
 
 } // namespace gtsam

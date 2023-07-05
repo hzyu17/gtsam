@@ -47,7 +47,7 @@ y_shift = Point3(0,1,0);
 
 % insert shifted points
 for i=1:nrPoints
-   initial.insert(100+i,landmarks{i} + y_shift); 
+   initial.insert(100+i,landmarks{i}.compose(y_shift)); 
 end
 
 figure(1);
@@ -98,7 +98,7 @@ for i=1:20
     % generate some camera measurements
     cam_pose = initial.atPose3(i).compose(actual_transform);
 %     gtsam.plotPose3(cam_pose);
-    cam = PinholeCameraCal3_S2(cam_pose,K);
+    cam = SimpleCamera(cam_pose,K);
     i
 %     result
     for j=1:nrPoints
@@ -146,8 +146,7 @@ for i=1:20
         plotPoint3(result.atPoint3(l),'g');
     end
     
-    t = result.atPose3(1000).translation();
-    ty = t(2);
+    ty = result.atPose3(1000).translation().y();
     text(5,5,5,sprintf('Y-Transform: %0.2g',ty));
   
     if(write_video)

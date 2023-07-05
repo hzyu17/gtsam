@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -16,12 +16,14 @@
  */
 
 #include <time.h>
+#include <boost/assign/std/list.hpp> // for operator += in Ordering
 #include <CppUnitLite/TestHarness.h>
 #include <tests/smallExample.h>
 
 using namespace std;
 using namespace gtsam;
 using namespace example;
+using namespace boost::assign;
 
 /* ************************************************************************* */
 // Create a Kalman smoother for t=1:T and optimize
@@ -38,7 +40,7 @@ double timeKalmanSmoother(int T) {
 /* ************************************************************************* */
 // Create a planar factor graph and optimize
 double timePlanarSmoother(int N, bool old = true) {
-  GaussianFactorGraph fg = planarGraph(N).first;
+  GaussianFactorGraph fg = planarGraph(N).get<0>();
   clock_t start = clock();
   fg.optimize();
   clock_t end = clock ();
@@ -49,7 +51,7 @@ double timePlanarSmoother(int N, bool old = true) {
 /* ************************************************************************* */
 // Create a planar factor graph and eliminate
 double timePlanarSmootherEliminate(int N, bool old = true) {
-  GaussianFactorGraph fg = planarGraph(N).first;
+  GaussianFactorGraph fg = planarGraph(N).get<0>();
   clock_t start = clock();
   fg.eliminateMultifrontal();
   clock_t end = clock ();
@@ -63,7 +65,7 @@ double timePlanarSmootherEliminate(int N, bool old = true) {
 //double timePlanarSmootherJoinAug(int N, size_t reps) {
 //  GaussianFactorGraph fgBase;
 //  VectorValues config;
-//  std::tie(fgBase,config) = planarGraph(N);
+//  boost::tie(fgBase,config) = planarGraph(N);
 //  Ordering ordering = fgBase.getOrdering();
 //  Symbol key = ordering.front();
 //
@@ -96,7 +98,7 @@ double timePlanarSmootherEliminate(int N, bool old = true) {
 //double timePlanarSmootherCombined(int N, size_t reps) {
 //  GaussianFactorGraph fgBase;
 //  VectorValues config;
-//  std::tie(fgBase,config) = planarGraph(N);
+//  boost::tie(fgBase,config) = planarGraph(N);
 //  Ordering ordering = fgBase.getOrdering();
 //  Symbol key = ordering.front();
 //
@@ -151,13 +153,13 @@ TEST(timeGaussianFactorGraph, linearTime)
 // Switch to 100*100 grid = 10K poses
 // 1879: 15.6498 15.3851 15.5279
 
-int grid_size = 100;
+int size = 100;
 
 /* ************************************************************************* */
 TEST(timeGaussianFactorGraph, planar_old)
 {
   cout << "Timing planar - original version" << endl;
-  double time = timePlanarSmoother(grid_size);
+  double time = timePlanarSmoother(size);
   cout << "timeGaussianFactorGraph : " << time << endl;
   //DOUBLES_EQUAL(5.97,time,0.1);
 }
@@ -166,7 +168,7 @@ TEST(timeGaussianFactorGraph, planar_old)
 TEST(timeGaussianFactorGraph, planar_new)
 {
   cout << "Timing planar - new version" << endl;
-  double time = timePlanarSmoother(grid_size, false);
+  double time = timePlanarSmoother(size, false);
   cout << "timeGaussianFactorGraph : " << time << endl;
   //DOUBLES_EQUAL(5.97,time,0.1);
 }
@@ -175,7 +177,7 @@ TEST(timeGaussianFactorGraph, planar_new)
 TEST(timeGaussianFactorGraph, planar_eliminate_old)
 {
   cout << "Timing planar Eliminate - original version" << endl;
-  double time = timePlanarSmootherEliminate(grid_size);
+  double time = timePlanarSmootherEliminate(size);
   cout << "timeGaussianFactorGraph : " << time << endl;
   //DOUBLES_EQUAL(5.97,time,0.1);
 }
@@ -184,7 +186,7 @@ TEST(timeGaussianFactorGraph, planar_eliminate_old)
 TEST(timeGaussianFactorGraph, planar_eliminate_new)
 {
   cout << "Timing planar Eliminate - new version" << endl;
-  double time = timePlanarSmootherEliminate(grid_size, false);
+  double time = timePlanarSmootherEliminate(size, false);
   cout << "timeGaussianFactorGraph : " << time << endl;
   //DOUBLES_EQUAL(5.97,time,0.1);
 }

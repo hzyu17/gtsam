@@ -58,14 +58,14 @@ bool IncrementalFixedLagSmoother::equals(const FixedLagSmoother& rhs,
     double tol) const {
   const IncrementalFixedLagSmoother* e =
       dynamic_cast<const IncrementalFixedLagSmoother*>(&rhs);
-  return e != nullptr && FixedLagSmoother::equals(*e, tol)
+  return e != NULL && FixedLagSmoother::equals(*e, tol)
       && isam_.equals(e->isam_, tol);
 }
 
 /* ************************************************************************* */
 FixedLagSmoother::Result IncrementalFixedLagSmoother::update(
     const NonlinearFactorGraph& newFactors, const Values& newTheta,
-    const KeyTimestampMap& timestamps, const FactorIndices& factorsToRemove) {
+    const KeyTimestampMap& timestamps) {
 
   const bool debug = ISDEBUG("IncrementalFixedLagSmoother update");
 
@@ -76,7 +76,7 @@ FixedLagSmoother::Result IncrementalFixedLagSmoother::update(
   }
 
   FastVector<size_t> removedFactors;
-  std::optional<FastMap<Key, int> > constrainedKeys = {};
+  boost::optional<FastMap<Key, int> > constrainedKeys = boost::none;
 
   // Update the Timestamps associated with the factor keys
   updateKeyTimestampMap(timestamps);
@@ -125,8 +125,8 @@ FixedLagSmoother::Result IncrementalFixedLagSmoother::update(
   KeyList additionalMarkedKeys(additionalKeys.begin(), additionalKeys.end());
 
   // Update iSAM2
-  isamResult_ = isam_.update(newFactors, newTheta,
-      factorsToRemove, constrainedKeys, {}, additionalMarkedKeys);
+  ISAM2Result isamResult = isam_.update(newFactors, newTheta,
+      FactorIndices(), constrainedKeys, boost::none, additionalMarkedKeys);
 
   if (debug) {
     PrintSymbolicTree(isam_,
@@ -175,7 +175,7 @@ void IncrementalFixedLagSmoother::eraseKeysBefore(double timestamp) {
 /* ************************************************************************* */
 void IncrementalFixedLagSmoother::createOrderingConstraints(
     const KeyVector& marginalizableKeys,
-    std::optional<FastMap<Key, int> >& constrainedKeys) const {
+    boost::optional<FastMap<Key, int> >& constrainedKeys) const {
   if (marginalizableKeys.size() > 0) {
     constrainedKeys = FastMap<Key, int>();
     // Generate ordering constraints so that the marginalizable variables will be eliminated first

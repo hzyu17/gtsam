@@ -18,9 +18,13 @@
 
 #include <gtsam/base/timing.h>
 
+#include <boost/shared_ptr.hpp>
+#include <boost/intrusive_ptr.hpp>
+
 #include <iostream>
 
 using namespace std;
+using namespace boost;
 using namespace gtsam;
 
 struct DtorTestBase {
@@ -30,7 +34,7 @@ struct DtorTestBase {
 
 struct DtorTestDerived : public DtorTestBase {
   DtorTestDerived() { cout << "  DtorTestDerived" << endl; }
-  ~DtorTestDerived() override { cout << "  ~DtorTestDerived" << endl; }
+  virtual ~DtorTestDerived() { cout << "  ~DtorTestDerived" << endl; }
 };
 
 
@@ -43,8 +47,8 @@ struct VirtualBase {
 struct VirtualDerived : public VirtualBase {
   double data;
   VirtualDerived() { data = rand(); }
-  void method() override { data = rand(); }
-  ~VirtualDerived() override { }
+  virtual void method() { data = rand(); }
+  virtual ~VirtualDerived() { }
 };
 
 struct NonVirtualBase {

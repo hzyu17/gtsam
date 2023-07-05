@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -25,8 +25,12 @@ namespace gtsam {
 
 /* ************************************************************************* */
 Rot2 Rot2::fromCosSin(double c, double s) {
-  Rot2 R(c, s);
-  return R.normalize();
+  if (fabs(c * c + s * s - 1.0) > 1e-9) {
+    double norm_cs = sqrt(c*c + s*s);
+    c = c/norm_cs;
+    s = s/norm_cs;
+  }
+  return Rot2(c, s);
 }
 
 /* ************************************************************************* */
@@ -36,27 +40,20 @@ Rot2 Rot2::atan2(double y, double x) {
 }
 
 /* ************************************************************************* */
-Rot2 Rot2::Random(std::mt19937& rng) {
-  uniform_real_distribution<double> randomAngle(-M_PI, M_PI);
-  double angle = randomAngle(rng);
-  return fromAngle(angle);
-}
-
-/* ************************************************************************* */
 void Rot2::print(const string& s) const {
   cout << s << ": " << theta() << endl;
 }
 
 /* ************************************************************************* */
 bool Rot2::equals(const Rot2& R, double tol) const {
-  return std::abs(c_ - R.c_) <= tol && std::abs(s_ - R.s_) <= tol;
+  return fabs(c_ - R.c_) <= tol && fabs(s_ - R.s_) <= tol;
 }
 
 /* ************************************************************************* */
 Rot2& Rot2::normalize() {
   double scale = c_*c_ + s_*s_;
-  if(std::abs(scale-1.0) > 1e-10) {
-    scale = 1 / sqrt(scale);
+  if(fabs(scale-1.0)>1e-10) {
+    scale = pow(scale, -0.5);
     c_ *= scale;
     s_ *= scale;
   }
@@ -118,7 +115,7 @@ Point2 Rot2::unrotate(const Point2& p,
 /* ************************************************************************* */
 Rot2 Rot2::relativeBearing(const Point2& d, OptionalJacobian<1, 2> H) {
   double x = d.x(), y = d.y(), d2 = x * x + y * y, n = sqrt(d2);
-  if(std::abs(n) > 1e-5) {
+  if(fabs(n) > 1e-5) {
     if (H) {
       *H << -y / d2, x / d2;
     }
@@ -127,19 +124,6 @@ Rot2 Rot2::relativeBearing(const Point2& d, OptionalJacobian<1, 2> H) {
     if (H) *H << 0.0, 0.0;
     return Rot2();
   }
-}
-
-/* ************************************************************************* */
-Rot2 Rot2::ClosestTo(const Matrix2& M) {
-  Eigen::JacobiSVD<Matrix2> svd(M, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Matrix2& U = svd.matrixU();
-  const Matrix2& V = svd.matrixV();
-  const double det = (U * V.transpose()).determinant();
-  Matrix2 M_prime = (U * Vector2(1, det).asDiagonal() * V.transpose());
-
-  double c = M_prime(0, 0);
-  double s = M_prime(1, 0);
-  return Rot2::fromCosSin(c, s);
 }
 
 /* ************************************************************************* */

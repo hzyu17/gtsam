@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -18,7 +18,7 @@
 #pragma once
 
 #include <vector>
-#include <gtsam_unstable/dllexport.h>
+#include <gtsam_unstable/base/dllexport.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/linear/JacobianFactor.h>
 #include <gtsam/linear/HessianFactor.h>
@@ -35,7 +35,7 @@ public:
   typedef LinearizedGaussianFactor This;
 
   /** shared pointer for convenience */
-  typedef std::shared_ptr<LinearizedGaussianFactor> shared_ptr;
+  typedef boost::shared_ptr<LinearizedGaussianFactor> shared_ptr;
 
 protected:
 
@@ -45,7 +45,7 @@ protected:
 public:
 
   /** default constructor for serialization */
-  LinearizedGaussianFactor() = default;
+  LinearizedGaussianFactor() {};
 
   /**
    * @param gaussian:   A jacobian or hessian factor
@@ -53,13 +53,12 @@ public:
    */
   LinearizedGaussianFactor(const GaussianFactor::shared_ptr& gaussian, const Values& lin_points);
 
-  ~LinearizedGaussianFactor() override = default;
+  virtual ~LinearizedGaussianFactor() {};
 
   // access functions
   const Values& linearizationPoint() const { return lin_points_; }
 
 private:
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
@@ -68,7 +67,6 @@ private:
         boost::serialization::base_object<Base>(*this));
     ar & BOOST_SERIALIZATION_NVP(lin_points_);
   }
-#endif
 
 };
 
@@ -84,7 +82,7 @@ public:
   typedef LinearizedJacobianFactor This;
 
   /** shared pointer for convenience */
-  typedef std::shared_ptr<LinearizedJacobianFactor> shared_ptr;
+  typedef boost::shared_ptr<LinearizedJacobianFactor> shared_ptr;
 
   typedef VerticalBlockMatrix::Block ABlock;
   typedef VerticalBlockMatrix::constBlock constABlock;
@@ -111,53 +109,51 @@ public:
    */
   LinearizedJacobianFactor(const JacobianFactor::shared_ptr& jacobian, const Values& lin_points);
 
-  ~LinearizedJacobianFactor() override {}
+  virtual ~LinearizedJacobianFactor() {}
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this))); }
 
   // Testable
 
   /** print function */
-  void print(const std::string& s="", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s="", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /** equals function with optional tolerance */
-  bool equals(const NonlinearFactor& expected, double tol = 1e-9) const override;
+  virtual bool equals(const NonlinearFactor& expected, double tol = 1e-9) const;
 
   // access functions
   const constBVector b() const { return Ab_(size()).col(0); }
-  const constABlock A() const { return Ab_.range(0, size()); }
+  const constABlock A() const { return Ab_.range(0, size()); };
   const constABlock A(Key key) const { return Ab_(std::find(begin(), end(), key) - begin()); }
 
   /** get the dimension of the factor (number of rows on linearization) */
-  size_t dim() const override { return Ab_.rows(); }
+  size_t dim() const { return Ab_.rows(); };
 
   /** Calculate the error of the factor */
-  double error(const Values& c) const override;
+  double error(const Values& c) const;
 
   /**
    * linearize to a GaussianFactor
    * Reimplemented from NoiseModelFactor to directly copy out the
    * matrices and only update the RHS b with an updated residual
    */
-  std::shared_ptr<GaussianFactor> linearize(const Values& c) const override;
+  boost::shared_ptr<GaussianFactor> linearize(const Values& c) const;
 
   /** (A*x-b) */
   Vector error_vector(const Values& c) const;
 
 private:
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
-  friend class boost::serialization::access;
   /** Serialization function */
+  friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
     ar & boost::serialization::make_nvp("LinearizedJacobianFactor",
         boost::serialization::base_object<Base>(*this));
     ar & BOOST_SERIALIZATION_NVP(Ab_);
   }
-#endif
 };
 
 /// traits
@@ -177,7 +173,7 @@ public:
   typedef LinearizedHessianFactor This;
 
   /** shared pointer for convenience */
-  typedef std::shared_ptr<LinearizedHessianFactor> shared_ptr;
+  typedef boost::shared_ptr<LinearizedHessianFactor> shared_ptr;
 
   /** hessian block data types */
   typedef SymmetricBlockMatrix::Block Block; ///< A block from the Hessian matrix
@@ -203,20 +199,20 @@ public:
    */
   LinearizedHessianFactor(const HessianFactor::shared_ptr& hessian, const Values& lin_points);
 
-  ~LinearizedHessianFactor() override {}
+  virtual ~LinearizedHessianFactor() {}
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this))); }
 
   // Testable
 
   /** print function */
-  void print(const std::string& s="", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s="", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /** equals function with optional tolerance */
-  bool equals(const NonlinearFactor& expected, double tol = 1e-9) const override;
+  virtual bool equals(const NonlinearFactor& expected, double tol = 1e-9) const;
 
   /** Return the constant term \f$ f \f$ as described above
    * @return The constant term \f$ f \f$
@@ -240,7 +236,7 @@ public:
     return info_.aboveDiagonalRange(0, size(), size(), size() + 1).col(0);
   }
 
-  /** Return a copy of the block at (j1,j2) of the <em>upper-triangular part</em> of the
+  /** Return a copy of the block at (j1,j2) of the <emph>upper-triangular part</emph> of the
    * squared term \f$ H \f$, no data is copied.  See HessianFactor class documentation
    * above to explain that only the upper-triangular part of the information matrix is stored
    * and returned by this function.
@@ -256,7 +252,7 @@ public:
     return info_.block(J1, J2);
   }
 
-  /** Return the <em>upper-triangular part</em> of the full squared term, as described above.
+  /** Return the <emph>upper-triangular part</emph> of the full squared term, as described above.
    * See HessianFactor class documentation above to explain that only the
    * upper-triangular part of the information matrix is stored and returned by this function.
    */
@@ -265,21 +261,20 @@ public:
   }
 
   /** get the dimension of the factor (number of rows on linearization) */
-  size_t dim() const override { return info_.rows() - 1; }
+  size_t dim() const { return info_.rows() - 1; }
 
   /** Calculate the error of the factor */
-  double error(const Values& c) const override;
+  double error(const Values& c) const;
 
   /**
    * linearize to a GaussianFactor
    * Reimplemented from NoiseModelFactor to directly copy out the
    * matrices and only update the RHS b with an updated residual
    */
-  std::shared_ptr<GaussianFactor> linearize(const Values& c) const override;
+  boost::shared_ptr<GaussianFactor> linearize(const Values& c) const;
 
 private:
   /** Serialization function */
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
@@ -287,7 +282,6 @@ private:
         boost::serialization::base_object<Base>(*this));
     ar & BOOST_SERIALIZATION_NVP(info_);
   }
-#endif
 };
 
 /// traits

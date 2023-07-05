@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -28,9 +28,8 @@ namespace gtsam {
 
   /**
    * A class for computing marginals of variables in a DiscreteFactorGraph
-   * @ingroup discrete
    */
-class DiscreteMarginals {
+  class DiscreteMarginals {
 
   protected:
 
@@ -38,10 +37,8 @@ class DiscreteMarginals {
 
   public:
 
-  DiscreteMarginals() {}
-
   /** Construct a marginals class.
-   * @param graph The factor graph defining the full joint distribution on all variables.
+   * @param graph The factor graph defining the full joint density on all variables.
    */
   DiscreteMarginals(const DiscreteFactorGraph& graph) {
     bayesTree_ = graph.eliminateMultifrontal();
@@ -67,7 +64,7 @@ class DiscreteMarginals {
     //Create result
     Vector vResult(key.second);
     for (size_t state = 0; state < key.second ; ++ state) {
-      DiscreteValues values;
+      DiscreteFactor::Values values;
       values[key.first] = state;
       vResult(state) = (*marginalFactor)(values);
     }

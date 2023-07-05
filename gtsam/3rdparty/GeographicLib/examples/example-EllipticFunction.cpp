@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <iomanip>
-#include <exception>
 #include <cmath>
 #include <GeographicLib/Math.hpp>
 #include <GeographicLib/EllipticFunction.hpp>
@@ -15,12 +14,11 @@ int main() {
     EllipticFunction ell(0.1);  // parameter m = 0.1
     // See Abramowitz and Stegun, table 17.1
     cout << ell.K() << " " << ell.E() << "\n";
-    double phi = 20, sn, cn;
-    Math::sincosd(phi, sn ,cn);
+    double phi = 20 * Math::degree();
     // See Abramowitz and Stegun, table 17.6 with
     // alpha = asin(sqrt(m)) = 18.43 deg and phi = 20 deg
-    cout << ell.E(phi * Math::degree()) << " "
-         << ell.E(sn, cn, ell.Delta(sn, cn))
+    cout << ell.E(phi) << " "
+         << ell.E(sin(phi), cos(phi), sqrt(1 - ell.k2() * Math::sq(sin(phi))))
          << "\n";
     // See Carlson 1995, Sec 3.
     cout << fixed << setprecision(16)
@@ -37,7 +35,8 @@ int main() {
          << "RG(2,3,4)      = " << EllipticFunction::RG(2,3,4)    << "\n"
          << "RG(0,0.0796,4) = " << EllipticFunction::RG(0.0796,4) << "\n";
   }
-  catch (const exception& e) {
+  catch (const GeographicErr& e) {
     cout << "Caught exception: " << e.what() << "\n";
   }
+  return 0;
 }

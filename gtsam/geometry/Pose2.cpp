@@ -28,7 +28,7 @@ using namespace std;
 namespace gtsam {
 
 /** instantiate concept checks */
-GTSAM_CONCEPT_POSE_INST(Pose2)
+GTSAM_CONCEPT_POSE_INST(Pose2);
 
 static const Rot2 R_PI_2(Rot2::fromCosSin(0., 1.));
 
@@ -48,13 +48,7 @@ Matrix3 Pose2::matrix() const {
 
 /* ************************************************************************* */
 void Pose2::print(const string& s) const {
-  std::cout << (s.empty() ? s : s + " ") << *this << std::endl;
-}
-
-/* ************************************************************************* */
-std::ostream &operator<<(std::ostream &os, const Pose2& pose) {
-  os << "(" << pose.x() << ", " << pose.y() << ", " << pose.theta() << ")";
-  return os;
+  cout << s << "(" << t_.x() << ", " << t_.y() << ", " << r_.theta() << ")" << endl;
 }
 
 /* ************************************************************************* */
@@ -97,7 +91,7 @@ Vector3 Pose2::Logmap(const Pose2& p, OptionalJacobian<3, 3> H) {
 
 /* ************************************************************************* */
 Pose2 Pose2::ChartAtOrigin::Retract(const Vector3& v, ChartJacobian H) {
-#ifdef GTSAM_SLOW_BUT_CORRECT_EXPMAP
+#ifdef SLOW_BUT_CORRECT_EXPMAP
   return Expmap(v, H);
 #else
   if (H) {
@@ -109,7 +103,7 @@ Pose2 Pose2::ChartAtOrigin::Retract(const Vector3& v, ChartJacobian H) {
 }
 /* ************************************************************************* */
 Vector3 Pose2::ChartAtOrigin::Local(const Pose2& r, ChartJacobian H) {
-#ifdef GTSAM_SLOW_BUT_CORRECT_EXPMAP
+#ifdef SLOW_BUT_CORRECT_EXPMAP
   return Logmap(r, H);
 #else
   if (H) {
@@ -148,7 +142,7 @@ Matrix3 Pose2::adjointMap(const Vector3& v) {
 Matrix3 Pose2::ExpmapDerivative(const Vector3& v) {
   double alpha = v[2];
   Matrix3 J;
-  if (std::abs(alpha) > 1e-5) {
+  if (fabs(alpha) > 1e-5) {
     // Chirikjian11book2, pg. 36
     /* !!!Warning!!! Compare Iserles05an, formula 2.42 and Chirikjian11book2 pg.26
      * Iserles' right-trivialization dexpR is actually the left Jacobian J_l in Chirikjian's notation
@@ -180,7 +174,7 @@ Matrix3 Pose2::LogmapDerivative(const Pose2& p) {
   Vector3 v = Logmap(p);
   double alpha = v[2];
   Matrix3 J;
-  if (std::abs(alpha) > 1e-5) {
+  if (fabs(alpha) > 1e-5) {
     double alphaInv = 1/alpha;
     double halfCotHalfAlpha = 0.5*sin(alpha)/(1-cos(alpha));
     double v1 = v[0], v2 = v[1];
@@ -204,7 +198,7 @@ Pose2 Pose2::inverse() const {
 
 /* ************************************************************************* */
 // see doc/math.lyx, SE(2) section
-Point2 Pose2::transformTo(const Point2& point,
+Point2 Pose2::transform_to(const Point2& point,
     OptionalJacobian<2, 3> Hpose, OptionalJacobian<2, 2> Hpoint) const {
   OptionalJacobian<2, 2> Htranslation = Hpose.cols<2>(0);
   OptionalJacobian<2, 1> Hrotation = Hpose.cols<1>(2);
@@ -213,17 +207,9 @@ Point2 Pose2::transformTo(const Point2& point,
   return q;
 }
 
-Matrix Pose2::transformTo(const Matrix& points) const {
-  if (points.rows() != 2) {
-    throw std::invalid_argument("Pose2:transformTo expects 2*N matrix.");
-  }
-  const Matrix2 Rt = rotation().transpose();
-  return Rt * (points.colwise() - t_);  // Eigen broadcasting!
-}
-
 /* ************************************************************************* */
 // see doc/math.lyx, SE(2) section
-Point2 Pose2::transformFrom(const Point2& point,
+Point2 Pose2::transform_from(const Point2& point,
     OptionalJacobian<2, 3> Hpose, OptionalJacobian<2, 2> Hpoint) const {
   OptionalJacobian<2, 2> Htranslation = Hpose.cols<2>(0);
   OptionalJacobian<2, 1> Hrotation = Hpose.cols<1>(2);
@@ -232,21 +218,12 @@ Point2 Pose2::transformFrom(const Point2& point,
   return q + t_;
 }
 
-
-Matrix Pose2::transformFrom(const Matrix& points) const {
-  if (points.rows() != 2) {
-    throw std::invalid_argument("Pose2:transformFrom expects 2*N matrix.");
-  }
-  const Matrix2 R = rotation().matrix();
-  return (R * points).colwise() + t_;  // Eigen broadcasting!
-}
-
 /* ************************************************************************* */
 Rot2 Pose2::bearing(const Point2& point,
     OptionalJacobian<1, 3> Hpose, OptionalJacobian<1, 2> Hpoint) const {
   // make temporary matrices
   Matrix23 D_d_pose; Matrix2 D_d_point;
-  Point2 d = transformTo(point, Hpose ? &D_d_pose : 0, Hpoint ? &D_d_point : 0);
+  Point2 d = transform_to(point, Hpose ? &D_d_pose : 0, Hpoint ? &D_d_point : 0);
   if (!Hpose && !Hpoint) return Rot2::relativeBearing(d);
   Matrix12 D_result_d;
   Rot2 result = Rot2::relativeBearing(d, Hpose || Hpoint ? &D_result_d : 0);
@@ -309,66 +286,53 @@ double Pose2::range(const Pose2& pose,
 }
 
 /* *************************************************************************
- * Align finds the angle using a linear method:
- * a = Pose2::transformFrom(b) = t + R*b
+ * New explanation, from scan.ml
+ * It finds the angle using a linear method:
+ * q = Pose2::transform_from(p) = t + R*p
  * We need to remove the centroids from the data to find the rotation
- * using db=[dbx;dby] and a=[dax;day] we have
- *  |dax|   |c  -s|     |dbx|     |dbx -dby|     |c|
+ * using dp=[dpx;dpy] and q=[dqx;dqy] we have
+ *  |dqx|   |c  -s|     |dpx|     |dpx -dpy|     |c|
  *  |   | = |     |  *  |   |  =  |        |  *  | | = H_i*cs
- *  |day|   |s   c|     |dby|     |dby  dbx|     |s|
+ *  |dqy|   |s   c|     |dpy|     |dpy  dpx|     |s|
  * where the Hi are the 2*2 matrices. Then we will minimize the criterion
- * J = \sum_i norm(a_i - H_i * cs)
+ * J = \sum_i norm(q_i - H_i * cs)
  * Taking the derivative with respect to cs and setting to zero we have
- * cs = (\sum_i H_i' * a_i)/(\sum H_i'*H_i)
+ * cs = (\sum_i H_i' * q_i)/(\sum H_i'*H_i)
  * The hessian is diagonal and just divides by a constant, but this
  * normalization constant is irrelevant, since we take atan2.
- * i.e., cos ~ sum(dbx*dax + dby*day) and sin ~ sum(-dby*dax + dbx*day)
+ * i.e., cos ~ sum(dpx*dqx + dpy*dqy) and sin ~ sum(-dpy*dqx + dpx*dqy)
  * The translation is then found from the centroids
- * as they also satisfy ca = t + R*cb, hence t = ca - R*cb
+ * as they also satisfy cq = t + R*cp, hence t = cq - R*cp
  */
 
-std::optional<Pose2> Pose2::Align(const Point2Pairs &ab_pairs) {
-  const size_t n = ab_pairs.size();
-  if (n < 2) {
-    return {};  // we need at least 2 pairs
-  }
+boost::optional<Pose2> align(const vector<Point2Pair>& pairs) {
+
+  size_t n = pairs.size();
+  if (n<2) return boost::none; // we need at least two pairs
 
   // calculate centroids
-  Point2 ca(0, 0), cb(0, 0);
-  for (const Point2Pair& pair : ab_pairs) {
-    ca += pair.first;
-    cb += pair.second;
+  Point2 cp(0,0), cq(0,0);
+  for(const Point2Pair& pair: pairs) {
+    cp += pair.first;
+    cq += pair.second;
   }
-  const double f = 1.0/n;
-  ca *= f;
-  cb *= f;
+  double f = 1.0/n;
+  cp *= f; cq *= f;
 
   // calculate cos and sin
-  double c = 0, s = 0;
-  for (const Point2Pair& pair : ab_pairs) {
-    Point2 da = pair.first - ca;
-    Point2 db = pair.second - cb;
-    c += db.x() * da.x() + db.y() * da.y();
-    s += -db.y() * da.x() + db.x() * da.y();
+  double c=0,s=0;
+  for(const Point2Pair& pair: pairs) {
+    Point2 dq = pair.first  - cp;
+    Point2 dp = pair.second - cq;
+    c +=  dp.x() * dq.x() + dp.y() * dq.y();
+    s +=  dp.y() * dq.x() - dp.x() * dq.y(); // this works but is negative from formula above !! :-(
   }
 
   // calculate angle and translation
-  const double theta = atan2(s, c);
-  const Rot2 R = Rot2::fromAngle(theta);
-  const Point2 t = ca - R*cb;
+  double theta = atan2(s,c);
+  Rot2 R = Rot2::fromAngle(theta);
+  Point2 t = cq - R*cp;
   return Pose2(R, t);
-}
-
-std::optional<Pose2> Pose2::Align(const Matrix& a, const Matrix& b) {
-  if (a.rows() != 2 || b.rows() != 2 || a.cols() != b.cols()) {
-    throw std::invalid_argument(
-      "Pose2:Align expects 2*N matrices of equal shape.");
-  }
-  Point2Pairs ab_pairs;
-  for (Eigen::Index j = 0; j < a.cols(); j++) {
-    ab_pairs.emplace_back(a.col(j), b.col(j));
-  }
-  return Pose2::Align(ab_pairs);
 }
 
 /* ************************************************************************* */

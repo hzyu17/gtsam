@@ -19,12 +19,21 @@
 
 #include <gtsam/inference/Key.h>
 #include <gtsam/inference/FactorGraph.h>
+#include <gtsam/base/FastVector.h>
 #include <gtsam/base/types.h>
 #include <gtsam/base/timing.h>
 
+// Boost bimap generates many ugly warnings in CLANG
+#ifdef __clang__
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wredeclared-class-member"
+#endif
+#include <boost/bimap.hpp>
+#ifdef __clang__
+#  pragma clang diagnostic pop
+#endif
+
 #include <vector>
-#include <map>
-#include <unordered_map>
 
 namespace gtsam {
 /**
@@ -36,22 +45,14 @@ namespace gtsam {
  */
 class GTSAM_EXPORT MetisIndex {
 public:
-  typedef std::shared_ptr<MetisIndex> shared_ptr;
+  typedef boost::shared_ptr<MetisIndex> shared_ptr;
+  typedef boost::bimap<Key, int32_t> bm_type;
 
 private:
-  // Stores Key <-> integer value relationship
- struct BiMap {
-   std::map<Key, int32_t> left;
-   std::unordered_map<int32_t, Key> right;
-   void insert(const Key& left_value, const int32_t& right_value) {
-     left[left_value] = right_value;
-     right[right_value] = left_value;
-   }
- };
-
-  std::vector<int32_t> xadj_; // Index of node's adjacency list in adj
-  std::vector<int32_t> adj_; // Stores ajacency lists of all nodes, appended into a single vector
-  BiMap intKeyBMap_; // Stores Key <-> integer value relationship
+  FastVector<int32_t> xadj_; // Index of node's adjacency list in adj
+  FastVector<int32_t> adj_; // Stores ajacency lists of all nodes, appended into a single vector
+  FastVector<int32_t> iadj_; // Integer keys for passing into metis. One to one mapping with adj_;
+  boost::bimap<Key, int32_t> intKeyBMap_; // Stores Key <-> integer value relationship
   size_t nKeys_;
 
 public:
@@ -63,8 +64,8 @@ public:
       nKeys_(0) {
   }
 
-  template<class FACTORGRAPH>
-  MetisIndex(const FACTORGRAPH& factorGraph) :
+  template<class FG>
+  MetisIndex(const FG& factorGraph) :
       nKeys_(0) {
     augment(factorGraph);
   }
@@ -79,13 +80,13 @@ public:
    * Augment the variable index with new factors.  This can be used when
    * solving problems incrementally.
    */
-  template<class FACTORGRAPH>
-  void augment(const FACTORGRAPH& factors);
+  template<class FACTOR>
+  void augment(const FactorGraph<FACTOR>& factors);
 
-  const std::vector<int32_t>& xadj() const {
+  std::vector<int32_t> xadj() const {
     return xadj_;
   }
-  const std::vector<int32_t>& adj() const {
+  std::vector<int32_t> adj() const {
     return adj_;
   }
   size_t nValues() const {

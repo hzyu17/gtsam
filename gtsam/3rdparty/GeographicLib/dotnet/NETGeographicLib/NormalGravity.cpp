@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include "GeographicLib/NormalGravity.hpp"
@@ -29,11 +29,11 @@ NormalGravity::!NormalGravity(void)
 }
 
 //*****************************************************************************
-NormalGravity::NormalGravity(double a, double GM, double omega, double f_J2, bool geometricp)
+NormalGravity::NormalGravity(double a, double GM, double omega, double f, double J2)
 {
     try
     {
-      m_pNormalGravity = new GeographicLib::NormalGravity( a, GM, omega, f_J2, geometricp );
+        m_pNormalGravity = new GeographicLib::NormalGravity( a, GM, omega, f, J2 );
     }
     catch ( std::bad_alloc )
     {
@@ -51,8 +51,8 @@ NormalGravity::NormalGravity(StandardModels model)
     try
     {
         m_pNormalGravity = model == StandardModels::WGS84 ?
-            new GeographicLib::NormalGravity( GeographicLib::NormalGravity::WGS84() ) :
-            new GeographicLib::NormalGravity( GeographicLib::NormalGravity::GRS80() );
+            new GeographicLib::NormalGravity( GeographicLib::NormalGravity::WGS84 ) :
+            new GeographicLib::NormalGravity( GeographicLib::NormalGravity::GRS80 );
     }
     catch ( std::bad_alloc )
     {
@@ -172,29 +172,3 @@ double NormalGravity::GravityFlattening::get()
 //*****************************************************************************
 double NormalGravity::SurfacePotential::get()
 { return m_pNormalGravity->SurfacePotential(); }
-
-//*****************************************************************************
-NormalGravity^ NormalGravity::WGS84()
-{
-    return gcnew NormalGravity( StandardModels::WGS84 );
-}
-
-//*****************************************************************************
-NormalGravity^ NormalGravity::GRS80()
-{
-    return gcnew NormalGravity( StandardModels::GRS80 );
-}
-
-//*****************************************************************************
-double NormalGravity::J2ToFlattening(double a, double GM, double omega,
-                                     double J2)
-{
-    return GeographicLib::NormalGravity::J2ToFlattening( a, GM, omega, J2);
-}
-
-//*****************************************************************************
-double NormalGravity::FlatteningToJ2(double a, double GM, double omega,
-                                     double f)
-{
-    return GeographicLib::NormalGravity::FlatteningToJ2( a, GM, omega, f);
-}

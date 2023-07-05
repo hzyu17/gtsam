@@ -30,7 +30,7 @@ class LinearEquality: public JacobianFactor {
 public:
   typedef LinearEquality This; ///< Typedef to this class
   typedef JacobianFactor Base; ///< Typedef to base class
-  typedef std::shared_ptr<This> shared_ptr; ///< shared_ptr to this class
+  typedef boost::shared_ptr<This> shared_ptr; ///< shared_ptr to this class
 
 private:
   Key dualKey_;
@@ -85,24 +85,24 @@ public:
   }
 
   /** Virtual destructor */
-  ~LinearEquality() override {
+  virtual ~LinearEquality() {
   }
 
   /** equals */
-  bool equals(const GaussianFactor& lf, double tol = 1e-9) const override {
+  virtual bool equals(const GaussianFactor& lf, double tol = 1e-9) const {
     return Base::equals(lf, tol);
   }
 
   /** print */
-  void print(const std::string& s = "", const KeyFormatter& formatter =
-      DefaultKeyFormatter) const override {
+  virtual void print(const std::string& s = "", const KeyFormatter& formatter =
+      DefaultKeyFormatter) const {
     Base::print(s, formatter);
   }
 
   /** Clone this LinearEquality */
-  GaussianFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast < GaussianFactor
-        > (std::make_shared < LinearEquality > (*this));
+  virtual GaussianFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast < GaussianFactor
+        > (boost::make_shared < LinearEquality > (*this));
   }
 
   /// dual key
@@ -124,7 +124,7 @@ public:
    * I think it should be zero, as this function is meant for objective cost.
    * But the name "error" can be misleading.
    * TODO: confirm with Frank!! */
-  double error(const VectorValues& c) const override {
+  virtual double error(const VectorValues& c) const {
     return 0.0;
   }
 

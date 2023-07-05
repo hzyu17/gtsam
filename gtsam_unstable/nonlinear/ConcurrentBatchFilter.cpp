@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -28,7 +28,7 @@ void ConcurrentBatchFilter::PrintNonlinearFactor(const NonlinearFactor::shared_p
     const std::string& indent, const KeyFormatter& keyFormatter) {
   std::cout << indent;
   if(factor) {
-    if(std::dynamic_pointer_cast<LinearContainerFactor>(factor)) {
+    if(boost::dynamic_pointer_cast<LinearContainerFactor>(factor)) {
       std::cout << "l( ";
     } else {
       std::cout << "f( ";
@@ -38,7 +38,7 @@ void ConcurrentBatchFilter::PrintNonlinearFactor(const NonlinearFactor::shared_p
     }
     std::cout << ")" << std::endl;
   } else {
-    std::cout << "{ nullptr }" << std::endl;
+    std::cout << "{ NULL }" << std::endl;
   }
 }
 
@@ -65,8 +65,8 @@ void ConcurrentBatchFilter::PrintLinearFactor(const GaussianFactor::shared_ptr& 
     const std::string& indent, const KeyFormatter& keyFormatter) {
   std::cout << indent;
   if(factor) {
-    JacobianFactor::shared_ptr jf = std::dynamic_pointer_cast<JacobianFactor>(factor);
-    HessianFactor::shared_ptr hf = std::dynamic_pointer_cast<HessianFactor>(factor);
+    JacobianFactor::shared_ptr jf = boost::dynamic_pointer_cast<JacobianFactor>(factor);
+    HessianFactor::shared_ptr hf = boost::dynamic_pointer_cast<HessianFactor>(factor);
     if(jf) {
       std::cout << "j( ";
     } else if(hf) {
@@ -79,7 +79,7 @@ void ConcurrentBatchFilter::PrintLinearFactor(const GaussianFactor::shared_ptr& 
     }
     std::cout << ")" << std::endl;
   } else {
-    std::cout << "{ nullptr }" << std::endl;
+    std::cout << "{ NULL }" << std::endl;
   }
 }
 
@@ -119,7 +119,7 @@ bool ConcurrentBatchFilter::equals(const ConcurrentFilter& rhs, double tol) cons
 
 /* ************************************************************************* */
 ConcurrentBatchFilter::Result ConcurrentBatchFilter::update(const NonlinearFactorGraph& newFactors, const Values& newTheta,
-    const std::optional<FastList<Key> >& keysToMove, const std::optional< std::vector<size_t> >& removeFactorIndices) {
+    const boost::optional<FastList<Key> >& keysToMove, const boost::optional< std::vector<size_t> >& removeFactorIndices) {
 
   gttic(update);
 
@@ -139,8 +139,8 @@ ConcurrentBatchFilter::Result ConcurrentBatchFilter::update(const NonlinearFacto
   // Add the new variables to theta
   theta_.insert(newTheta);
   // Add new variables to the end of the ordering
-  for (const auto key : newTheta.keys()) {
-    ordering_.push_back(key);
+  for(const Values::ConstKeyValuePair& key_value: newTheta) {
+    ordering_.push_back(key_value.key);
   }
   // Augment Delta
   delta_.insert(newTheta.zeroVectors());
@@ -221,7 +221,10 @@ void ConcurrentBatchFilter::synchronize(const NonlinearFactorGraph& smootherSumm
   if(debug) { PrintNonlinearFactorGraph(smootherSummarization_, "ConcurrentBatchFilter::synchronize  ", "Updated Smoother Summarization:", DefaultKeyFormatter); }
 
   // Find the set of new separator keys
-  const KeySet newSeparatorKeys = separatorValues_.keySet();
+  KeySet newSeparatorKeys;
+  for(const Values::ConstKeyValuePair& key_value: separatorValues_) {
+    newSeparatorKeys.insert(key_value.key);
+  }
 
   if(debug) { PrintKeys(newSeparatorKeys, "ConcurrentBatchFilter::synchronize  ", "Current Separator Keys:"); }
 
@@ -233,9 +236,9 @@ void ConcurrentBatchFilter::synchronize(const NonlinearFactorGraph& smootherSumm
     graph.push_back(smootherShortcut_);
     Values values;
     values.insert(smootherSummarizationValues);
-    for(const auto key: newSeparatorKeys) {
-      if(!values.exists(key)) {
-        values.insert(key, separatorValues_.at(key));
+    for(const Values::ConstKeyValuePair& key_value: separatorValues_) {
+      if(!values.exists(key_value.key)) {
+        values.insert(key_value.key, key_value.value);
       }
     }
     // Calculate the summarized factor on just the new separator keys
@@ -355,11 +358,11 @@ void ConcurrentBatchFilter::removeFactors(const std::vector<size_t>& slots) {
 }
 
 /* ************************************************************************* */
-void ConcurrentBatchFilter::reorder(const std::optional<FastList<Key> >& keysToMove) {
+void ConcurrentBatchFilter::reorder(const boost::optional<FastList<Key> >& keysToMove) {
 
   // COLAMD groups will be used to place marginalize keys in Group 0, and everything else in Group 1
   if(keysToMove && keysToMove->size() > 0) {
-    ordering_ = Ordering::ColamdConstrainedFirst(factors_, KeyVector(keysToMove->begin(), keysToMove->end()));
+    ordering_ = Ordering::ColamdConstrainedFirst(factors_, std::vector<Key>(keysToMove->begin(), keysToMove->end()));
   }else{
     ordering_ = Ordering::Colamd(factors_);
   }
@@ -468,8 +471,8 @@ void ConcurrentBatchFilter::optimize(const NonlinearFactorGraph& factors, Values
           // Put the linearization points and deltas back for specific variables
           if(linearValues.size() > 0) {
             theta.update(linearValues);
-            for(const auto key: linearValues.keys()) {
-              delta.at(key) = newDelta.at(key);
+            for(const Values::ConstKeyValuePair& key_value: linearValues) {
+              delta.at(key_value.key) = newDelta.at(key_value.key);
             }
           }
 
@@ -533,7 +536,7 @@ void ConcurrentBatchFilter::moveSeparator(const FastList<Key>& keysToMove) {
   std::vector<size_t> removedFactorSlots;
   VariableIndex variableIndex(factors_);
   for(Key key: keysToMove) {
-    const auto& slots = variableIndex[key];
+    const FastVector<size_t>& slots = variableIndex[key];
     removedFactorSlots.insert(removedFactorSlots.end(), slots.begin(), slots.end());
   }
 
@@ -571,7 +574,9 @@ void ConcurrentBatchFilter::moveSeparator(const FastList<Key>& keysToMove) {
 
   // Calculate the set of new separator keys: AffectedKeys + PreviousSeparatorKeys - KeysToMove
   KeySet newSeparatorKeys = removedFactors.keys();
-  newSeparatorKeys.merge(separatorValues_.keySet());
+  for(const Values::ConstKeyValuePair& key_value: separatorValues_) {
+    newSeparatorKeys.insert(key_value.key);
+  }
   for(Key key: keysToMove) {
     newSeparatorKeys.erase(key);
   }

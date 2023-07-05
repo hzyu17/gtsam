@@ -27,7 +27,7 @@ namespace gtsam {
 double norm2(const Point2& p, OptionalJacobian<1,2> H) {
   double r = std::sqrt(p.x() * p.x() + p.y() * p.y());
   if (H) {
-    if (std::abs(r) > 1e-10)
+    if (fabs(r) > 1e-10)
       *H << p.x() / r, p.y() / r;
     else
       *H << 1, 1;  // really infinity, why 1 ?
@@ -50,9 +50,52 @@ double distance2(const Point2& p, const Point2& q, OptionalJacobian<1, 2> H1,
   }
 }
 
+#ifndef GTSAM_TYPEDEF_POINTS_TO_VECTORS
+
+/* ************************************************************************* */
+void Point2::print(const string& s) const {
+  cout << s << *this << endl;
+}
+
+/* ************************************************************************* */
+bool Point2::equals(const Point2& q, double tol) const {
+  return (fabs(x() - q.x()) < tol && fabs(y() - q.y()) < tol);
+}
+
+/* ************************************************************************* */
+double Point2::norm(OptionalJacobian<1,2> H) const {
+  return gtsam::norm2(*this, H);
+}
+
+/* ************************************************************************* */
+double Point2::distance(const Point2& point, OptionalJacobian<1,2> H1,
+    OptionalJacobian<1,2> H2) const {
+  return gtsam::distance2(*this, point, H1, H2);
+}
+
+/* ************************************************************************* */
+ostream &operator<<(ostream &os, const Point2& p) {
+  os << '(' << p.x() << ", " << p.y() << ')';
+  return os;
+}
+
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
+boost::optional<Point2> CircleCircleIntersection(double R_d, double r_d, double tol) {
+  return circleCircleIntersection(R_d, r_d, tol);
+}
+std::list<Point2> CircleCircleIntersection(Point2 c1, Point2 c2, boost::optional<Point2> fh) {
+  return circleCircleIntersection(c1, c2, fh);
+}
+std::list<Point2> CircleCircleIntersection(Point2 c1, double r1, Point2 c2, double r2, double tol) {
+  return circleCircleIntersection(c1, r1, c2, r2, tol);
+}
+#endif
+
+#endif // GTSAM_TYPEDEF_POINTS_TO_VECTORS
+
 /* ************************************************************************* */
 // Math inspired by http://paulbourke.net/geometry/circlesphere/
-std::optional<Point2> circleCircleIntersection(double R_d, double r_d,
+boost::optional<Point2> circleCircleIntersection(double R_d, double r_d,
     double tol) {
 
   double R2_d2 = R_d*R_d; // Yes, RD-D2 !
@@ -61,17 +104,17 @@ std::optional<Point2> circleCircleIntersection(double R_d, double r_d,
 
   // h^2<0 is equivalent to (d > (R + r) || d < (R - r))
   // Hence, there are only solutions if >=0
-  if (h2<-tol) return {}; // allow *slightly* negative
+  if (h2<-tol) return boost::none; // allow *slightly* negative
   else if (h2<tol) return Point2(f,0.0); // one solution
   else return Point2(f,std::sqrt(h2)); // two solutions
 }
 
 /* ************************************************************************* */
 list<Point2> circleCircleIntersection(Point2 c1, Point2 c2,
-    std::optional<Point2> fh) {
+    boost::optional<Point2> fh) {
 
   list<Point2> solutions;
-  // If fh==std::nullopt, there are no solutions, i.e., d > (R + r) || d < (R - r)
+  // If fh==boost::none, there are no solutions, i.e., d > (R + r) || d < (R - r)
   if (fh) {
     // vector between circle centers
     Point2 c12 = c2-c1;
@@ -107,24 +150,12 @@ list<Point2> circleCircleIntersection(Point2 c1, double r1, Point2 c2,
 
   // Calculate f and h given normalized radii
   double _d = 1.0/d, R_d = r1*_d, r_d=r2*_d;
-  std::optional<Point2> fh = circleCircleIntersection(R_d,r_d);
+  boost::optional<Point2> fh = circleCircleIntersection(R_d,r_d);
 
   // Call version that takes fh
   return circleCircleIntersection(c1, c2, fh);
 }
 
-Point2Pair means(const std::vector<Point2Pair> &abPointPairs) {
-  const size_t n = abPointPairs.size();
-  if (n == 0) throw std::invalid_argument("Point2::mean input Point2Pair vector is empty");
-  Point2 aSum(0, 0), bSum(0, 0);
-  for (const Point2Pair &abPair : abPointPairs) {
-    aSum += abPair.first;
-    bSum += abPair.second;
-  }
-  const double f = 1.0 / n;
-  return {aSum * f, bSum * f};
-}
-  
 /* ************************************************************************* */
 ostream &operator<<(ostream &os, const gtsam::Point2Pair &p) {
   os << p.first << " <-> " << p.second;

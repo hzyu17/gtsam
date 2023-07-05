@@ -27,7 +27,7 @@ namespace gtsam {
 
 //------------------------------------------------------------------------------
 ManifoldPreintegration::ManifoldPreintegration(
-    const std::shared_ptr<Params>& p, const Bias& biasHat) :
+    const boost::shared_ptr<Params>& p, const Bias& biasHat) :
     PreintegrationBase(p, biasHat) {
   resetIntegration();
 }
@@ -46,7 +46,7 @@ void ManifoldPreintegration::resetIntegration() {
 //------------------------------------------------------------------------------
 bool ManifoldPreintegration::equals(const ManifoldPreintegration& other,
     double tol) const {
-  return p_->equals(*other.p_, tol) && std::abs(deltaTij_ - other.deltaTij_) < tol
+  return p_->equals(*other.p_, tol) && fabs(deltaTij_ - other.deltaTij_) < tol
       && biasHat_.equals(other.biasHat_, tol)
       && deltaXij_.equals(other.deltaXij_, tol)
       && equal_with_abs_tol(delRdelBiasOmega_, other.delRdelBiasOmega_, tol)
@@ -67,11 +67,9 @@ void ManifoldPreintegration::update(const Vector3& measuredAcc,
 
   // Possibly correct for sensor pose
   Matrix3 D_correctedAcc_acc, D_correctedAcc_omega, D_correctedOmega_omega;
-  if (p().body_P_sensor) {
-    std::tie(acc, omega) = correctMeasurementsBySensorPose(
-        acc, omega, D_correctedAcc_acc, D_correctedAcc_omega,
-        D_correctedOmega_omega);
-  }
+  if (p().body_P_sensor)
+    boost::tie(acc, omega) = correctMeasurementsBySensorPose(acc, omega,
+        D_correctedAcc_acc, D_correctedAcc_omega, D_correctedOmega_omega);
 
   // Save current rotation for updating Jacobians
   const Rot3 oldRij = deltaXij_.attitude();
@@ -115,7 +113,7 @@ Vector9 ManifoldPreintegration::biasCorrectedDelta(
   const imuBias::ConstantBias biasIncr = bias_i - biasHat_;
   Matrix3 D_correctedRij_bias;
   const Vector3 biasInducedOmega = delRdelBiasOmega_ * biasIncr.gyroscope();
-  const Rot3 correctedRij = deltaRij().expmap(biasInducedOmega, {},
+  const Rot3 correctedRij = deltaRij().expmap(biasInducedOmega, boost::none,
       H ? &D_correctedRij_bias : 0);
   if (H)
     D_correctedRij_bias *= delRdelBiasOmega_;

@@ -13,4 +13,5 @@ int main() {
   catch (const GeographicErr& e) {
     cout << "Caught exception: " << e.what() << "\n";
   }
+  return 0;
 }

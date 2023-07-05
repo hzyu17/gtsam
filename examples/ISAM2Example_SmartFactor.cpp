@@ -4,8 +4,7 @@
  * @author Alexander (pumaking on BitBucket)
  */
 
-#include <gtsam/geometry/PinholeCamera.h>
-#include <gtsam/geometry/Cal3_S2.h>
+#include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/SmartProjectionPoseFactor.h>
@@ -28,7 +27,7 @@ int main(int argc, char* argv[]) {
       noiseModel::Isotropic::Sigma(2, 1.0);  // one pixel in u and v
 
   Vector6 sigmas;
-  sigmas << Vector3::Constant(0.1), Vector3::Constant(0.3);
+  sigmas << Vector3::Constant(0.3), Vector3::Constant(0.1);
   auto noise = noiseModel::Diagonal::Sigmas(sigmas);
 
   ISAM2Params parameters;
@@ -57,7 +56,7 @@ int main(int argc, char* argv[]) {
   vector<Pose3> poses = {pose1, pose2, pose3, pose4, pose5};
 
   // Add first pose
-  graph.addPrior(X(0), poses[0], noise);
+  graph.emplace_shared<PriorFactor<Pose3>>(X(0), poses[0], noise);
   initialEstimate.insert(X(0), poses[0].compose(delta));
 
   // Create smart factor with measurement from first pose only
@@ -71,7 +70,7 @@ int main(int argc, char* argv[]) {
     cout << "i = " << i << endl;
 
     // Add prior on new pose
-    graph.addPrior(X(i), poses[i], noise);
+    graph.emplace_shared<PriorFactor<Pose3>>(X(i), poses[i], noise);
     initialEstimate.insert(X(i), poses[i].compose(delta));
 
     // "Simulate" measurement from this pose
@@ -87,8 +86,9 @@ int main(int argc, char* argv[]) {
     result.print();
 
     cout << "Detailed results:" << endl;
-    for (auto& [key, status] : result.detail->variableStatus) {
-      PrintKey(key);
+    for (auto keyedStatus : result.detail->variableStatus) {
+      const auto& status = keyedStatus.second;
+      PrintKey(keyedStatus.first);
       cout << " {" << endl;
       cout << "reeliminated: " << status.isReeliminated << endl;
       cout << "relinearized above thresh: " << status.isAboveRelinThreshold
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
     Values currentEstimate = isam.calculateEstimate();
     currentEstimate.print("Current estimate: ");
 
-    auto pointEstimate = smartFactor->point(currentEstimate);
+    boost::optional<Point3> pointEstimate = smartFactor->point(currentEstimate);
     if (pointEstimate) {
       cout << *pointEstimate << endl;
     } else {

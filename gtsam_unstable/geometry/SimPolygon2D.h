@@ -6,11 +6,10 @@
 
 #pragma once
 
+#include <map>
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam_unstable/geometry/SimWall2D.h>
-
-#include <map>
-#include <random>
+#include <boost/random/linear_congruential.hpp>
 
 namespace gtsam {
 
@@ -20,7 +19,7 @@ namespace gtsam {
 class GTSAM_UNSTABLE_EXPORT SimPolygon2D {
 protected:
   Point2Vector landmarks_;
-  static std::minstd_rand rng;
+  static boost::minstd_rand rng;
 
 public:
 

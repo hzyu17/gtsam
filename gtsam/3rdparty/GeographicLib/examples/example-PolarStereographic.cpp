@@ -1,8 +1,9 @@
 // Example of using the GeographicLib::PolarStereographic class
 
 #include <iostream>
-#include <iomanip>
 #include <exception>
+#include <string>
+#include <iomanip>
 #include <GeographicLib/PolarStereographic.hpp>
 
 using namespace std;
@@ -13,7 +14,7 @@ int main() {
     PolarStereographic proj(Constants::WGS84_a(), Constants::WGS84_f(),
                             Constants::UPS_k0());
     // Alternatively:
-    // const PolarStereographic& proj = PolarStereographic::UPS();
+    // const PolarStereographic& proj = PolarStereographic::UPS;
     bool northp = true;
     {
       // Sample forward calculation
@@ -34,4 +35,5 @@ int main() {
     cerr << "Caught exception: " << e.what() << "\n";
     return 1;
   }
+  return 0;
 }

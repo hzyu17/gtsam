@@ -18,21 +18,18 @@
 
 #pragma once
 
-#include <gtsam/base/Testable.h>
 #include <gtsam/inference/Key.h>
-
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
+#include <gtsam/base/Testable.h>
 #include <boost/serialization/nvp.hpp>
-#endif
 #include <cstdint>
-#include <functional>
 
 namespace gtsam {
 
 /**
- * Character and index key used to refer to variables. Will simply cast to a Key,
- * i.e., a large integer. Keys are used to retrieve values from Values,
- * specify what variables factors depend on, etc.
+ * Character and index key used in VectorValues, GaussianFactorGraph,
+ * GaussianFactor, etc.  These keys are generated at runtime from TypedSymbol
+ * keys when linearizing a nonlinear factor graph.  This key is not type
+ * safe, so cannot be used with any Nonlinear* classes.
  */
 class GTSAM_EXPORT Symbol {
 protected:
@@ -84,9 +81,6 @@ public:
   /** Create a string from the key */
   operator std::string() const;
 
-  /// Return string representation of the key
-  std::string string() const { return std::string(*this); }
-
   /** Comparison for use in maps */
   bool operator<(const Symbol& comp) const {
     return c_ < comp.c_ || (comp.c_ == c_ && j_ < comp.j_);
@@ -117,14 +111,10 @@ public:
    * Values::filter() function to retrieve all key-value pairs with the
    * requested character.
    */
-  static std::function<bool(Key)> ChrTest(unsigned char c);
-
-  /// Output stream operator that can be used with key_formatter (see Key.h).
-  GTSAM_EXPORT friend std::ostream &operator<<(std::ostream &, const Symbol &);
+  static boost::function<bool(Key)> ChrTest(unsigned char c);
 
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
@@ -132,7 +122,6 @@ private:
     ar & BOOST_SERIALIZATION_NVP(c_);
     ar & BOOST_SERIALIZATION_NVP(j_);
   }
-#endif
 };
 
 /** Create a symbol key from a character and index, i.e. x5. */
@@ -173,17 +162,8 @@ inline Key Y(std::uint64_t j) { return Symbol('y', j); }
 inline Key Z(std::uint64_t j) { return Symbol('z', j); }
 }
 
-/** Generates symbol shorthands with alternative names different than the
- * one-letter predefined ones. */
-class SymbolGenerator {
-  const unsigned char c_;
-public:
-  constexpr SymbolGenerator(const unsigned char c) : c_(c) {}
-  Symbol operator()(const std::uint64_t j) const { return Symbol(c_, j); }
-  constexpr unsigned char chr() const { return c_; }
-};
-
 /// traits
 template<> struct traits<Symbol> : public Testable<Symbol> {};
 
 } // \ namespace gtsam
+

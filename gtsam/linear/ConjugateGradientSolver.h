@@ -30,7 +30,7 @@ class GTSAM_EXPORT ConjugateGradientParameters : public IterativeOptimizationPar
 
 public:
   typedef IterativeOptimizationParameters Base;
-  typedef std::shared_ptr<ConjugateGradientParameters> shared_ptr;
+  typedef boost::shared_ptr<ConjugateGradientParameters> shared_ptr;
 
   size_t minIterations_;  ///< minimum number of cg iterations
   size_t maxIterations_;  ///< maximum number of cg iterations
@@ -80,7 +80,7 @@ public:
 
 
   void print() const { Base::print(); }
-  void print(std::ostream &os) const override;
+  virtual void print(std::ostream &os) const;
 
   static std::string blasTranslator(const BLASKernel k) ;
   static BLASKernel blasTranslator(const std::string &s) ;

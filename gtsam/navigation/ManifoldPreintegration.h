@@ -27,10 +27,10 @@
 namespace gtsam {
 
 /**
- * IMU pre-integration on NavState manifold.
+ * IMU pre-integration on NavSatet manifold.
  * This corresponds to the original RSS paper (with one difference: V is rotated)
  */
-class GTSAM_EXPORT ManifoldPreintegration : public PreintegrationBase {
+class ManifoldPreintegration : public PreintegrationBase {
  protected:
 
   /**
@@ -59,7 +59,7 @@ public:
    *  @param p    Parameters, typically fixed in a single application
    *  @param bias Current estimate of acceleration and rotation rate biases
    */
-  ManifoldPreintegration(const std::shared_ptr<Params>& p,
+  ManifoldPreintegration(const boost::shared_ptr<Params>& p,
       const imuBias::ConstantBias& biasHat = imuBias::ConstantBias());
 
   /// @}
@@ -103,31 +103,31 @@ public:
   /// summarizing the preintegrated IMU measurements so far
   /// NOTE(frank): implementation is different in two versions
   Vector9 biasCorrectedDelta(const imuBias::ConstantBias& bias_i,
-      OptionalJacobian<9, 6> H = {}) const override;
+      OptionalJacobian<9, 6> H = boost::none) const override;
 
   /** Dummy clone for MATLAB */
-  virtual std::shared_ptr<ManifoldPreintegration> clone() const {
-    return std::shared_ptr<ManifoldPreintegration>();
+  virtual boost::shared_ptr<ManifoldPreintegration> clone() const {
+    return boost::shared_ptr<ManifoldPreintegration>();
   }
 
   /// @}
 
 private:
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
     namespace bs = ::boost::serialization;
-    ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(PreintegrationBase);
+    ar & BOOST_SERIALIZATION_NVP(p_);
+    ar & BOOST_SERIALIZATION_NVP(deltaTij_);
     ar & BOOST_SERIALIZATION_NVP(deltaXij_);
-    ar & BOOST_SERIALIZATION_NVP(delRdelBiasOmega_);
-    ar & BOOST_SERIALIZATION_NVP(delPdelBiasAcc_);
-    ar & BOOST_SERIALIZATION_NVP(delPdelBiasOmega_);
-    ar & BOOST_SERIALIZATION_NVP(delVdelBiasAcc_);
-    ar & BOOST_SERIALIZATION_NVP(delVdelBiasOmega_);
+    ar & BOOST_SERIALIZATION_NVP(biasHat_);
+    ar & bs::make_nvp("delRdelBiasOmega_", bs::make_array(delRdelBiasOmega_.data(), delRdelBiasOmega_.size()));
+    ar & bs::make_nvp("delPdelBiasAcc_", bs::make_array(delPdelBiasAcc_.data(), delPdelBiasAcc_.size()));
+    ar & bs::make_nvp("delPdelBiasOmega_", bs::make_array(delPdelBiasOmega_.data(), delPdelBiasOmega_.size()));
+    ar & bs::make_nvp("delVdelBiasAcc_", bs::make_array(delVdelBiasAcc_.data(), delVdelBiasAcc_.size()));
+    ar & bs::make_nvp("delVdelBiasOmega_", bs::make_array(delVdelBiasOmega_.data(), delVdelBiasOmega_.size()));
   }
-#endif
 };
 
 } /// namespace gtsam

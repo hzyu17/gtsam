@@ -12,7 +12,7 @@ int main() {
     // Define the Pennsylvania South state coordinate system EPSG:3364
     // http://www.spatialreference.org/ref/epsg/3364/
     const double
-      a = Constants::WGS84_a(),
+      a = Constants::WGS84_a<double>(),
       f = 1/298.257222101,                      // GRS80
       lat1 = 40 + 58/60.0, lat2 = 39 + 56/60.0, // standard parallels
       k1 = 1,                                   // scale
@@ -30,7 +30,7 @@ int main() {
       double x, y;
       PASouth.Forward(lon0, lat, lon, x, y);
       x -= x0; y -= y0;
-      cout << x << " " << y << "\n";
+      std::cout << x << " " << y << "\n";
     }
     {
       // Sample conversion from PASouth grid to geodetic
@@ -38,11 +38,12 @@ int main() {
       double lat, lon;
       x += x0; y += y0;
       PASouth.Reverse(lon0, x, y, lat, lon);
-      cout << lat << " " << lon << "\n";
+      std::cout << lat << " " << lon << "\n";
     }
   }
   catch (const exception& e) {
     cerr << "Caught exception: " << e.what() << "\n";
     return 1;
   }
+  return 0;
 }

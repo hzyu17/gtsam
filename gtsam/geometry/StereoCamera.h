@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -25,24 +25,14 @@ namespace gtsam {
 
 class GTSAM_EXPORT StereoCheiralityException: public std::runtime_error {
 public:
-  StereoCheiralityException()
-    : StereoCheiralityException(std::numeric_limits<Key>::max()) {}
-
-  StereoCheiralityException(Key j)
-    : std::runtime_error("Stereo Cheirality Exception"),
-      j_(j) {}
-
-  Key nearbyVariable() const {
-    return j_;
+  StereoCheiralityException() :
+      std::runtime_error("Stereo Cheirality Exception") {
   }
-
-private:
-  Key j_;
 };
 
 /**
  * A stereo camera class, parameterize by left camera pose and stereo calibration
- * @ingroup geometry
+ * @addtogroup geometry
  */
 class GTSAM_EXPORT StereoCamera {
 
@@ -143,7 +133,7 @@ public:
    * @param H2 derivative with respect to point
    */
   StereoPoint2 project2(const Point3& point, OptionalJacobian<3, 6> H1 =
-      {}, OptionalJacobian<3, 3> H2 = {}) const;
+      boost::none, OptionalJacobian<3, 3> H2 = boost::none) const;
 
   /// back-project a measurement
   Point3 backproject(const StereoPoint2& z) const;
@@ -153,8 +143,8 @@ public:
    * @param H2 derivative with respect to point
    */
   Point3 backproject2(const StereoPoint2& z,
-                      OptionalJacobian<3, 6> H1 = {},
-                      OptionalJacobian<3, 3> H2 = {}) const;
+                      OptionalJacobian<3, 6> H1 = boost::none,
+                      OptionalJacobian<3, 3> H2 = boost::none) const;
 
   /// @}
   /// @name Deprecated
@@ -167,26 +157,19 @@ public:
    * @param H3 IGNORED (for calibration)
    */
   StereoPoint2 project(const Point3& point, OptionalJacobian<3, 6> H1,
-      OptionalJacobian<3, 3> H2 = {}, OptionalJacobian<3, 0> H3 =
-          {}) const;
-
-  /// for Nonlinear Triangulation
-  Vector defaultErrorWhenTriangulatingBehindCamera() const {
-    return Eigen::Matrix<double,traits<Measurement>::dimension,1>::Constant(2.0 * K_->fx());
-  }
+      OptionalJacobian<3, 3> H2 = boost::none, OptionalJacobian<3, 0> H3 =
+          boost::none) const;
 
   /// @}
 
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /*version*/) {
     ar & BOOST_SERIALIZATION_NVP(leftCamPose_);
     ar & BOOST_SERIALIZATION_NVP(K_);
   }
-#endif
 
 };
 

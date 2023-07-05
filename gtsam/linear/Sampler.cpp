@@ -11,8 +11,6 @@
 
 /**
  * @file Sampler.cpp
- * @brief sampling from a diagonal NoiseModel
- * @author Frank Dellaert
  * @author Alex Cunningham
  */
 
@@ -20,20 +18,25 @@
 namespace gtsam {
 
 /* ************************************************************************* */
-Sampler::Sampler(const noiseModel::Diagonal::shared_ptr& model,
-                 uint_fast64_t seed)
-    : model_(model), generator_(seed) {
-  if (!model) {
-    throw std::invalid_argument("Sampler::Sampler needs a non-null model.");
-  }
+Sampler::Sampler(const noiseModel::Diagonal::shared_ptr& model, int32_t seed)
+  : model_(model), generator_(static_cast<unsigned>(seed))
+{
 }
 
 /* ************************************************************************* */
-Sampler::Sampler(const Vector& sigmas, uint_fast64_t seed)
-    : model_(noiseModel::Diagonal::Sigmas(sigmas, true)), generator_(seed) {}
+Sampler::Sampler(const Vector& sigmas, int32_t seed)
+: model_(noiseModel::Diagonal::Sigmas(sigmas, true)), generator_(static_cast<unsigned>(seed))
+{
+}
 
 /* ************************************************************************* */
-Vector Sampler::sampleDiagonal(const Vector& sigmas, std::mt19937_64* rng) {
+Sampler::Sampler(int32_t seed)
+: generator_(static_cast<unsigned>(seed))
+{
+}
+
+/* ************************************************************************* */
+Vector Sampler::sampleDiagonal(const Vector& sigmas) {
   size_t d = sigmas.size();
   Vector result(d);
   for (size_t i = 0; i < d; i++) {
@@ -43,25 +46,28 @@ Vector Sampler::sampleDiagonal(const Vector& sigmas, std::mt19937_64* rng) {
     if (sigma == 0.0) {
       result(i) = 0.0;
     } else {
-      std::normal_distribution<double> dist(0.0, sigma);
-      result(i) = dist(*rng);
+      typedef boost::normal_distribution<double> Normal;
+      Normal dist(0.0, sigma);
+      boost::variate_generator<boost::mt19937_64&, Normal> norm(generator_, dist);
+      result(i) = norm();
     }
   }
   return result;
 }
 
 /* ************************************************************************* */
-Vector Sampler::sampleDiagonal(const Vector& sigmas) const {
-  return sampleDiagonal(sigmas, &generator_);
-}
-
-/* ************************************************************************* */
-Vector Sampler::sample() const {
+Vector Sampler::sample() {
   assert(model_.get());
   const Vector& sigmas = model_->sigmas();
   return sampleDiagonal(sigmas);
 }
 
 /* ************************************************************************* */
+Vector Sampler::sampleNewModel(const noiseModel::Diagonal::shared_ptr& model) {
+  assert(model.get());
+  const Vector& sigmas = model->sigmas();
+  return sampleDiagonal(sigmas);
+}
+/* ************************************************************************* */
 
-}  // namespace gtsam
+} // \namespace gtsam

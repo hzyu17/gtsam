@@ -20,17 +20,14 @@ namespace gtsam {
  * with z and p measured and predicted angular velocities, and hence
  *   p = iRc * z
  */
-class RotateFactor: public NoiseModelFactorN<Rot3> {
+class RotateFactor: public NoiseModelFactor1<Rot3> {
 
   Point3 p_, z_; ///< Predicted and measured directions, p = iRc * z
 
-  typedef NoiseModelFactorN<Rot3> Base;
+  typedef NoiseModelFactor1<Rot3> Base;
   typedef RotateFactor This;
 
 public:
-
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
 
   /// Constructor
   RotateFactor(Key key, const Rot3& P, const Rot3& Z,
@@ -39,13 +36,13 @@ public:
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this))); }
 
   /// print
-  void print(const std::string& s = "",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
+  virtual void print(const std::string& s = "",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
     Base::print(s);
     std::cout << "RotateFactor:]\n";
     std::cout << "p: " << p_.transpose() << std::endl;
@@ -53,7 +50,8 @@ public:
   }
 
   /// vector of errors returns 2D vector
-  Vector evaluateError(const Rot3& R, OptionalMatrixType H) const override {
+  Vector evaluateError(const Rot3& R,
+      boost::optional<Matrix&> H = boost::none) const {
     // predict p_ as q = R*z_, derivative H will be filled if not none
     Point3 q = R.rotate(z_,H);
     // error is just difference, and note derivative of that wrpt q is I3
@@ -66,17 +64,14 @@ public:
  * Factor on unknown rotation iRc that relates two directions c
  * Directions provide less constraints than a full rotation
  */
-class RotateDirectionsFactor: public NoiseModelFactorN<Rot3> {
+class RotateDirectionsFactor: public NoiseModelFactor1<Rot3> {
 
   Unit3 i_p_, c_z_; ///< Predicted and measured directions, i_p = iRc * c_z
 
-  typedef NoiseModelFactorN<Rot3> Base;
+  typedef NoiseModelFactor1<Rot3> Base;
   typedef RotateDirectionsFactor This;
 
 public:
-
-  // Provide access to the Matrix& version of evaluateError:
-  using Base::evaluateError;
 
   /// Constructor
   RotateDirectionsFactor(Key key, const Unit3& i_p, const Unit3& c_z,
@@ -93,13 +88,13 @@ public:
   }
 
   /// @return a deep copy of this factor
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return std::static_pointer_cast<gtsam::NonlinearFactor>(
+  virtual gtsam::NonlinearFactor::shared_ptr clone() const {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
         gtsam::NonlinearFactor::shared_ptr(new This(*this))); }
 
   /// print
-  void print(const std::string& s = "",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
+  virtual void print(const std::string& s = "",
+      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
     Base::print(s);
     std::cout << "RotateDirectionsFactor:" << std::endl;
     i_p_.print("p");
@@ -107,7 +102,7 @@ public:
   }
 
   /// vector of errors returns 2D vector
-  Vector evaluateError(const Rot3& iRc, OptionalMatrixType H) const override {
+  Vector evaluateError(const Rot3& iRc, boost::optional<Matrix&> H = boost::none) const {
     Unit3 i_q = iRc * c_z_;
     Vector error = i_p_.error(i_q, H);
     if (H) {
@@ -117,8 +112,6 @@ public:
     }
     return error;
   }
-
-  GTSAM_MAKE_ALIGNED_OPERATOR_NEW
 };
 }  // namespace gtsam
 

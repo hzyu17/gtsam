@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -15,8 +15,6 @@
  * @author Frank Dellaert
  * @author Richard Roberts
  */
-
-#pragma once
 
 #include <gtsam/discrete/DiscreteFactorGraph.h>
 #include <gtsam/discrete/DiscreteBayesTree.h>
@@ -44,8 +42,7 @@ namespace gtsam {
    * The tree structure and elimination method are exactly analogous to the EliminationTree,
    * except that in the JunctionTree, at each node multiple variables are eliminated at a time.
    *
-   * \ingroup Multifrontal
-   * @ingroup discrete
+   * \addtogroup Multifrontal
    * \nosubgrouping
    */
   class GTSAM_EXPORT DiscreteJunctionTree :
@@ -53,8 +50,8 @@ namespace gtsam {
   public:
     typedef JunctionTree<DiscreteBayesTree, DiscreteFactorGraph> Base; ///< Base class
     typedef DiscreteJunctionTree This; ///< This class
-    typedef std::shared_ptr<This> shared_ptr; ///< Shared pointer to this class
-
+    typedef boost::shared_ptr<This> shared_ptr; ///< Shared pointer to this class
+    
     /**
     * Build the elimination tree of a factor graph using precomputed column structure.
     * @param factorGraph The factor graph for which to build the elimination tree

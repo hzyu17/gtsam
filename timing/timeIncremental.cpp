@@ -15,6 +15,7 @@
  */
 
 #include <gtsam/slam/dataset.h>
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/sam/BearingRangeFactor.h>
 #include <gtsam/geometry/Pose2.h>
@@ -27,6 +28,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/serialization/export.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 using namespace std;
 using namespace gtsam;
@@ -34,8 +36,8 @@ using namespace gtsam::symbol_shorthand;
 
 typedef Pose2 Pose;
 
-typedef NoiseModelFactorN<Pose> NM1;
-typedef NoiseModelFactorN<Pose,Pose> NM2;
+typedef NoiseModelFactor1<Pose> NM1;
+typedef NoiseModelFactor2<Pose,Pose> NM2;
 typedef BearingRangeFactor<Pose,Point2> BR;
 
 //GTSAM_VALUE_EXPORT(Value);
@@ -59,7 +61,7 @@ double chi2_red(const gtsam::NonlinearFactorGraph& graph, const gtsam::Values& c
   // the factor graph already includes a factor for the prior/equality constraint.
   //  double dof = graph.size() - config.size();
   int graph_dim = 0;
-  for(const std::shared_ptr<gtsam::NonlinearFactor>& nlf: graph) {
+  for(const boost::shared_ptr<gtsam::NonlinearFactor>& nlf: graph) {
     graph_dim += nlf->dim();
   }
   double dof = graph_dim - config.dim(); // kaess: changed to dim
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
   cout << "Loading data..." << endl;
 
   gttic_(Find_datafile);
-  //string datasetFile = findExampleDataFile("w10000");
+  //string datasetFile = findExampleDataFile("w10000-odom");
   string datasetFile = findExampleDataFile("victoria_park");
   std::pair<NonlinearFactorGraph::shared_ptr, Values::shared_ptr> data =
     load2D(datasetFile);
@@ -96,28 +98,28 @@ int main(int argc, char *argv[]) {
       //      cout << "Initializing " << 0 << endl;
       newVariables.insert(0, Pose());
       // Add prior
-      newFactors.addPrior(0, Pose(), noiseModel::Unit::Create(3));
+      newFactors.add(PriorFactor<Pose>(0, Pose(), noiseModel::Unit::Create(3)));
     }
     while(nextMeasurement < measurements.size()) {
 
       NonlinearFactor::shared_ptr measurementf = measurements[nextMeasurement];
 
       if(BetweenFactor<Pose>::shared_ptr measurement =
-        std::dynamic_pointer_cast<BetweenFactor<Pose> >(measurementf))
+        boost::dynamic_pointer_cast<BetweenFactor<Pose> >(measurementf))
       {
         // Stop collecting measurements that are for future steps
-        if(measurement->key<1>() > step || measurement->key<2>() > step)
+        if(measurement->key1() > step || measurement->key2() > step)
           break;
 
         // Require that one of the nodes is the current one
-        if(measurement->key<1>() != step && measurement->key<2>() != step)
+        if(measurement->key1() != step && measurement->key2() != step)
           throw runtime_error("Problem in data file, out-of-sequence measurements");
 
         // Add a new factor
         newFactors.push_back(measurement);
 
         // Initialize the new variable
-        if(measurement->key<1>() == step && measurement->key<2>() == step-1) {
+        if(measurement->key1() == step && measurement->key2() == step-1) {
           if(step == 1)
             newVariables.insert(step, measurement->measured().inverse());
           else {
@@ -125,7 +127,7 @@ int main(int argc, char *argv[]) {
             newVariables.insert(step, prevPose * measurement->measured().inverse());
           }
           //        cout << "Initializing " << step << endl;
-        } else if(measurement->key<2>() == step && measurement->key<1>() == step-1) {
+        } else if(measurement->key2() == step && measurement->key1() == step-1) {
           if(step == 1)
             newVariables.insert(step, measurement->measured());
           else {
@@ -136,7 +138,7 @@ int main(int argc, char *argv[]) {
         }
       }
       else if(BearingRangeFactor<Pose, Point2>::shared_ptr measurement =
-        std::dynamic_pointer_cast<BearingRangeFactor<Pose, Point2> >(measurementf))
+        boost::dynamic_pointer_cast<BearingRangeFactor<Pose, Point2> >(measurementf))
       {
         Key poseKey = measurement->keys()[0], lmKey = measurement->keys()[1];
 
@@ -151,10 +153,10 @@ int main(int argc, char *argv[]) {
         if(!isam2.getLinearizationPoint().exists(lmKey))
         {
           Pose pose = isam2.calculateEstimate<Pose>(poseKey);
-          Rot2 measuredBearing = measurement->measured().bearing();
-          double measuredRange = measurement->measured().range();
-          newVariables.insert(lmKey,
-            pose.transformFrom(measuredBearing.rotate(Point2(measuredRange, 0.0))));
+          Rot2 measuredBearing = measurement->measured().first;
+          double measuredRange = measurement->measured().second;
+          newVariables.insert(lmKey, 
+            pose.transform_from(measuredBearing.rotate(Point2(measuredRange, 0.0))));
         }
       }
       else
@@ -224,17 +226,12 @@ int main(int argc, char *argv[]) {
   try {
     Marginals marginals(graph, values);
     int i=0;
-    // Assign the keyvector to a named variable
-    auto keys = values.keys();
-    // Iterate over it in reverse
-    for (auto it1 = keys.rbegin(); it1 != keys.rend(); ++it1) {
-      Key key1 = *it1;
+    for (Key key1: boost::adaptors::reverse(values.keys())) {
       int j=0;
-      for (auto it2 = keys.rbegin(); it2 != keys.rend(); ++it2) {
-        Key key2 = *it2;
+      for (Key key2: boost::adaptors::reverse(values.keys())) {
         if(i != j) {
           gttic_(jointMarginalInformation);
-          KeyVector keys(2);
+          std::vector<Key> keys(2);
           keys[0] = key1;
           keys[1] = key2;
           JointMarginal info = marginals.jointMarginalInformation(keys);

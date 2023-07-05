@@ -25,12 +25,6 @@
 namespace gtsam {
 
 /* ************************************************************************* */
-SymmetricBlockMatrix::SymmetricBlockMatrix() : blockStart_(0) {
-  variableColOffsets_.push_back(0);
-  assertInvariants();
-}
-
-/* ************************************************************************* */
 SymmetricBlockMatrix SymmetricBlockMatrix::LikeActiveViewOf(
     const SymmetricBlockMatrix& other) {
   SymmetricBlockMatrix result;
@@ -68,24 +62,11 @@ Matrix SymmetricBlockMatrix::block(DenseIndex I, DenseIndex J) const {
 }
 
 /* ************************************************************************* */
-void SymmetricBlockMatrix::negate() {
-  full().triangularView<Eigen::Upper>() *= -1.0;
-}
-
-/* ************************************************************************* */
-void SymmetricBlockMatrix::invertInPlace() {
-  const auto identity = Matrix::Identity(rows(), rows());
-  full().triangularView<Eigen::Upper>() =
-      selfadjointView().llt().solve(identity).triangularView<Eigen::Upper>();
-}
-
-/* ************************************************************************* */
 void SymmetricBlockMatrix::choleskyPartial(DenseIndex nFrontals) {
   gttic(VerticalBlockMatrix_choleskyPartial);
   DenseIndex topleft = variableColOffsets_[blockStart_];
-  if (!gtsam::choleskyPartial(matrix_, offset(nFrontals) - topleft, topleft)) {
+  if (!gtsam::choleskyPartial(matrix_, offset(nFrontals) - topleft, topleft))
     throw CholeskyFailed();
-  }
 }
 
 /* ************************************************************************* */

@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -22,7 +22,10 @@
 #include <gtsam/base/Matrix.h>
 #include <gtsam/base/Testable.h>
 #include <gtsam/base/OptionalJacobian.h>
-#include <gtsam/base/concepts.h>
+
+#include <boost/concept_check.hpp>
+#include <boost/concept/requires.hpp>
+#include <boost/type_traits/is_base_of.hpp>
 
 namespace gtsam {
 
@@ -69,7 +72,7 @@ struct HasManifoldPrereqs {
 
 /// Extra manifold traits for fixed-dimension types
 template<class Class, int N>
-struct GetDimensionImpl {
+struct ManifoldImpl {
   // Compile-time dimensionality
   static int GetDimension(const Class&) {
     return N;
@@ -78,7 +81,7 @@ struct GetDimensionImpl {
 
 /// Extra manifold traits for variable-dimension types
 template<class Class>
-struct GetDimensionImpl<Class, Eigen::Dynamic> {
+struct ManifoldImpl<Class, Eigen::Dynamic> {
   // Run-time dimensionality
   static int GetDimension(const Class& m) {
     return m.dim();
@@ -89,10 +92,10 @@ struct GetDimensionImpl<Class, Eigen::Dynamic> {
 /// To use this for your class type, define:
 /// template<> struct traits<Class> : public internal::ManifoldTraits<Class> { };
 template<class Class>
-struct ManifoldTraits: GetDimensionImpl<Class, Class::dimension> {
+struct ManifoldTraits: ManifoldImpl<Class, Class::dimension> {
 
   // Check that Class has the necessary machinery
-  GTSAM_CONCEPT_ASSERT(HasManifoldPrereqs<Class>);
+  BOOST_CONCEPT_ASSERT((HasManifoldPrereqs<Class>));
 
   // Dimension of the manifold
   enum { dimension = Class::dimension };
@@ -120,7 +123,7 @@ template<class Class> struct Manifold: ManifoldTraits<Class>, Testable<Class> {}
 
 /// Check invariants for Manifold type
 template<typename T>
-GTSAM_CONCEPT_REQUIRES(IsTestable<T>, bool) //
+BOOST_CONCEPT_REQUIRES(((IsTestable<T>)),(bool)) //
 check_manifold_invariants(const T& a, const T& b, double tol=1e-9) {
   typename traits<T>::TangentVector v0 = traits<T>::Local(a,a);
   typename traits<T>::TangentVector v = traits<T>::Local(a,b);
@@ -140,10 +143,10 @@ public:
   typedef typename traits<T>::TangentVector TangentVector;
 
   BOOST_CONCEPT_USAGE(IsManifold) {
-    static_assert(
-        (std::is_base_of<manifold_tag, structure_category_tag>::value),
+    BOOST_STATIC_ASSERT_MSG(
+        (boost::is_base_of<manifold_tag, structure_category_tag>::value),
         "This type's structure_category trait does not assert it as a manifold (or derived)");
-    static_assert(TangentVector::SizeAtCompileTime == dim);
+    BOOST_STATIC_ASSERT(TangentVector::SizeAtCompileTime == dim);
 
     // make sure Chart methods are defined
     v = traits<T>::Local(p, q);
@@ -161,9 +164,58 @@ template<typename T>
 struct FixedDimension {
   typedef const int value_type;
   static const int value = traits<T>::dimension;
-  static_assert(value != Eigen::Dynamic,
+  BOOST_STATIC_ASSERT_MSG(value != Eigen::Dynamic,
       "FixedDimension instantiated for dymanically-sized type.");
 };
+
+/// Helper class to construct the product manifold of two other manifolds, M1 and M2
+/// Assumes nothing except manifold structure for M1 and M2, and the existence
+/// of default constructor for those types
+template<typename M1, typename M2>
+class ProductManifold: public std::pair<M1, M2> {
+  BOOST_CONCEPT_ASSERT((IsManifold<M1>));
+  BOOST_CONCEPT_ASSERT((IsManifold<M2>));
+
+protected:
+  enum { dimension1 = traits<M1>::dimension };
+  enum { dimension2 = traits<M2>::dimension };
+
+public:
+  enum { dimension = dimension1 + dimension2 };
+  inline static size_t Dim() { return dimension;}
+  inline size_t dim() const { return dimension;}
+
+  typedef Eigen::Matrix<double, dimension, 1> TangentVector;
+  typedef OptionalJacobian<dimension, dimension> ChartJacobian;
+
+  /// Default constructor needs default constructors to be defined
+  ProductManifold():std::pair<M1,M2>(M1(),M2()) {}
+
+  // Construct from two original manifold values
+  ProductManifold(const M1& m1, const M2& m2):std::pair<M1,M2>(m1,m2) {}
+
+  /// Retract delta to manifold
+  ProductManifold retract(const TangentVector& xi) const {
+    M1 m1 = traits<M1>::Retract(this->first,  xi.template head<dimension1>());
+    M2 m2 = traits<M2>::Retract(this->second, xi.template tail<dimension2>());
+    return ProductManifold(m1,m2);
+  }
+
+  /// Compute the coordinates in the tangent space
+  TangentVector localCoordinates(const ProductManifold& other) const {
+    typename traits<M1>::TangentVector v1 = traits<M1>::Local(this->first,  other.first);
+    typename traits<M2>::TangentVector v2 = traits<M2>::Local(this->second, other.second);
+    TangentVector v;
+    v << v1, v2;
+    return v;
+  }
+};
+
+// Define any direct product group to be a model of the multiplicative Group concept
+template<typename M1, typename M2>
+struct traits<ProductManifold<M1, M2> > : internal::Manifold<ProductManifold<M1, M2> > {
+};
+
 } // \ namespace gtsam
 
 ///**
@@ -175,4 +227,4 @@ struct FixedDimension {
 // * the gtsam namespace to be more easily enforced as testable
 // */
 #define GTSAM_CONCEPT_MANIFOLD_INST(T) template class gtsam::IsManifold<T>;
-#define GTSAM_CONCEPT_MANIFOLD_TYPE(T) using _gtsam_IsManifold_##T = gtsam::IsManifold<T>;
+#define GTSAM_CONCEPT_MANIFOLD_TYPE(T) typedef gtsam::IsManifold<T> _gtsam_IsManifold_##T;

@@ -3,7 +3,7 @@
  *
  * Copyright (c) Charles Karney (2013) <charles@karney.com> and licensed
  * under the MIT/X11 License.  For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 package net.sf.geographiclib;
 

@@ -16,7 +16,6 @@ MODULES = Accumulator \
 	DMS \
 	Ellipsoid \
 	EllipticFunction \
-	GARS \
 	GeoCoords \
 	Geocentric \
 	Geodesic \
@@ -25,7 +24,6 @@ MODULES = Accumulator \
 	GeodesicLineExact \
 	Geohash \
 	Geoid \
-	Georef \
 	Gnomonic \
 	GravityCircle \
 	GravityModel \
@@ -34,29 +32,27 @@ MODULES = Accumulator \
 	MGRS \
 	MagneticCircle \
 	MagneticModel \
-	Math \
 	NormalGravity \
 	OSGB \
 	PolarStereographic \
 	PolygonArea \
-	Rhumb \
 	SphericalEngine \
 	TransverseMercator \
 	TransverseMercatorExact \
 	UTMUPS \
 	Utility
 EXTRAHEADERS = Constants \
-	NearestNeighbor \
+	Math \
 	SphericalHarmonic \
 	SphericalHarmonic1 \
 	SphericalHarmonic2
-EXTRASOURCES = GeodesicExactC4
+
 HEADERS = Config.h $(addsuffix .hpp,$(EXTRAHEADERS) $(MODULES))
-SOURCES = $(addsuffix .cpp,$(MODULES) $(EXTRASOURCES))
-OBJECTS = $(addsuffix .o,$(MODULES) $(EXTRASOURCES))
+SOURCES = $(addsuffix .cpp,$(MODULES))
+OBJECTS = $(addsuffix .o,$(MODULES))
 
 CC = g++ -g
-CXXFLAGS = -g -Wall -Wextra -O3 -std=c++0x
+CXXFLAGS = -g -Wall -Wextra -O3
 
 CPPFLAGS = -I$(INCLUDEPATH) $(DEFINES) \
 	-DGEOGRAPHICLIB_DATA=\"$(GEOGRAPHICLIB_DATA)\"
@@ -91,20 +87,17 @@ DMS.o: Config.h Constants.hpp DMS.hpp Math.hpp Utility.hpp
 Ellipsoid.o: Config.h Constants.hpp Ellipsoid.hpp AlbersEqualArea.hpp \
 	EllipticFunction.hpp Math.hpp TransverseMercator.hpp
 EllipticFunction.o: Config.h Constants.hpp EllipticFunction.hpp Math.hpp
-GARS.o: Config.h Constants.hpp GARS.hpp Utility.hpp
 GeoCoords.o: Config.h Constants.hpp DMS.hpp GeoCoords.hpp MGRS.hpp Math.hpp \
 	UTMUPS.hpp Utility.hpp
 Geocentric.o: Config.h Constants.hpp Geocentric.hpp Math.hpp
 Geodesic.o: Config.h Constants.hpp Geodesic.hpp GeodesicLine.hpp Math.hpp
 GeodesicExact.o: Config.h Constants.hpp GeodesicExact.hpp \
 	GeodesicLineExact.hpp Math.hpp
-GeodesicExactC4.o: Config.h Constants.hpp GeodesicExact.hpp Math.hpp
 GeodesicLine.o: Config.h Constants.hpp Geodesic.hpp GeodesicLine.hpp Math.hpp
 GeodesicLineExact.o: Config.h Constants.hpp GeodesicExact.hpp \
 	GeodesicLineExact.hpp Math.hpp
 Geohash.o: Config.h Constants.hpp Geohash.hpp Utility.hpp
 Geoid.o: Config.h Constants.hpp Geoid.hpp Math.hpp
-Georef.o: Config.h Constants.hpp Georef.hpp Utility.hpp
 Gnomonic.o: Config.h Constants.hpp Geodesic.hpp GeodesicLine.hpp Gnomonic.hpp \
 	Math.hpp
 GravityCircle.o: CircularEngine.hpp Config.h Constants.hpp Geocentric.hpp \
@@ -124,7 +117,6 @@ MagneticCircle.o: CircularEngine.hpp Config.h Constants.hpp Geocentric.hpp \
 MagneticModel.o: CircularEngine.hpp Config.h Constants.hpp Geocentric.hpp \
 	MagneticCircle.hpp MagneticModel.hpp Math.hpp SphericalEngine.hpp \
 	SphericalHarmonic.hpp Utility.hpp
-Math.o: Config.h Constants.hpp Math.hpp
 NormalGravity.o: Config.h Constants.hpp Geocentric.hpp Math.hpp \
 	NormalGravity.hpp
 OSGB.o: Config.h Constants.hpp Math.hpp OSGB.hpp TransverseMercator.hpp \
@@ -132,8 +124,6 @@ OSGB.o: Config.h Constants.hpp Math.hpp OSGB.hpp TransverseMercator.hpp \
 PolarStereographic.o: Config.h Constants.hpp Math.hpp PolarStereographic.hpp
 PolygonArea.o: Accumulator.hpp Config.h Constants.hpp Geodesic.hpp Math.hpp \
 	PolygonArea.hpp
-Rhumb.o: Config.h Constants.hpp Ellipsoid.hpp Math.hpp Rhumb.hpp \
-	AlbersEqualArea.hpp EllipticFunction.hpp TransverseMercator.hpp
 SphericalEngine.o: CircularEngine.hpp Config.h Constants.hpp Math.hpp \
 	SphericalEngine.hpp Utility.hpp
 TransverseMercator.o: Config.h Constants.hpp Math.hpp TransverseMercator.hpp

@@ -25,16 +25,17 @@ using namespace std;
 
 namespace gtsam {
 
-void PreintegratedRotationParams::print(const string& s) const {
-  cout << (s.empty() ? s : s + "\n") << endl;
+void PreintegratedRotation::Params::print(const string& s) const {
+  cout << s << endl;
   cout << "gyroscopeCovariance:\n[\n" << gyroscopeCovariance << "\n]" << endl;
   if (omegaCoriolis)
     cout << "omegaCoriolis = (" << omegaCoriolis->transpose() << ")" << endl;
-  if (body_P_sensor) body_P_sensor->print("body_P_sensor");
+  if (body_P_sensor)
+    body_P_sensor->print("body_P_sensor");
 }
 
-bool PreintegratedRotationParams::equals(
-    const PreintegratedRotationParams& other, double tol) const {
+bool PreintegratedRotation::Params::equals(
+    const PreintegratedRotation::Params& other, double tol) const {
   if (body_P_sensor) {
     if (!other.body_P_sensor
         || !assert_equal(*body_P_sensor, *other.body_P_sensor, tol))
@@ -64,7 +65,7 @@ bool PreintegratedRotation::equals(const PreintegratedRotation& other,
     double tol) const {
   return this->matchesParamsWith(other)
       && deltaRij_.equals(other.deltaRij_, tol)
-      && std::abs(deltaTij_ - other.deltaTij_) < tol
+      && fabs(deltaTij_ - other.deltaTij_) < tol
       && equal_with_abs_tol(delRdelBiasOmega_, other.delRdelBiasOmega_, tol);
 }
 
@@ -115,7 +116,8 @@ void PreintegratedRotation::integrateMeasurement(const Vector3& measuredOmega,
 Rot3 PreintegratedRotation::biascorrectedDeltaRij(const Vector3& biasOmegaIncr,
     OptionalJacobian<3, 3> H) const {
   const Vector3 biasInducedOmega = delRdelBiasOmega_ * biasOmegaIncr;
-  const Rot3 deltaRij_biascorrected = deltaRij_.expmap(biasInducedOmega,{}, H);
+  const Rot3 deltaRij_biascorrected = deltaRij_.expmap(biasInducedOmega,
+      boost::none, H);
   if (H)
     (*H) *= delRdelBiasOmega_;
   return deltaRij_biascorrected;

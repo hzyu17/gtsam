@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -26,6 +26,8 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/linear/GaussianBayesNet.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
+#include <boost/tuple/tuple.hpp>
+#include <boost/assign/list_of.hpp>
 
 namespace gtsam {
 namespace example {
@@ -33,7 +35,7 @@ namespace example {
 /**
  * Create small example for non-linear factor graph
  */
-// inline std::shared_ptr<const NonlinearFactorGraph> sharedNonlinearFactorGraph();
+// inline boost::shared_ptr<const NonlinearFactorGraph> sharedNonlinearFactorGraph();
 // inline NonlinearFactorGraph createNonlinearFactorGraph();
 
 /**
@@ -48,7 +50,7 @@ namespace example {
 /**
  * create a noisy values structure for a nonlinear factor graph
  */
-// inline std::shared_ptr<const Values> sharedNoisyValues();
+// inline boost::shared_ptr<const Values> sharedNoisyValues();
 // inline Values createNoisyValues();
 
 /**
@@ -75,7 +77,7 @@ namespace example {
 /**
  * Create really non-linear factor graph (cos/sin)
  */
-// inline std::shared_ptr<const NonlinearFactorGraph>
+// inline boost::shared_ptr<const NonlinearFactorGraph>
 //sharedReallyNonlinearFactorGraph();
 // inline NonlinearFactorGraph createReallyNonlinearFactorGraph();
 
@@ -129,7 +131,7 @@ namespace example {
  * -x11-x21-x31
  * with x11 clamped at (1,1), and others related by 2D odometry.
  */
-// inline std::pair<GaussianFactorGraph, VectorValues> planarGraph(size_t N);
+// inline boost::tuple<GaussianFactorGraph, VectorValues> planarGraph(size_t N);
 
 /*
  * Create canonical ordering for planar graph that also works for tree
@@ -156,12 +158,12 @@ namespace example {
 //  using namespace gtsam::noiseModel;
 
 namespace impl {
-typedef std::shared_ptr<NonlinearFactor> shared_nlf;
+typedef boost::shared_ptr<NonlinearFactor> shared_nlf;
 
-static SharedDiagonal kSigma1_0 = noiseModel::Isotropic::Sigma(2,1.0);
-static SharedDiagonal kSigma0_1 = noiseModel::Isotropic::Sigma(2,0.1);
-static SharedDiagonal kSigma0_2 = noiseModel::Isotropic::Sigma(2,0.2);
-static SharedDiagonal kConstrainedModel = noiseModel::Constrained::All(2);
+static SharedDiagonal sigma1_0 = noiseModel::Isotropic::Sigma(2,1.0);
+static SharedDiagonal sigma0_1 = noiseModel::Isotropic::Sigma(2,0.1);
+static SharedDiagonal sigma0_2 = noiseModel::Isotropic::Sigma(2,0.2);
+static SharedDiagonal constraintModel = noiseModel::Constrained::All(2);
 
 static const Key _l1_=0, _x1_=1, _x2_=2;
 static const Key _x_=0, _y_=1, _z_=2;
@@ -169,43 +171,40 @@ static const Key _x_=0, _y_=1, _z_=2;
 
 
 /* ************************************************************************* */
-inline std::shared_ptr<const NonlinearFactorGraph>
-sharedNonlinearFactorGraph(const SharedNoiseModel &noiseModel1 = impl::kSigma0_1,
-                           const SharedNoiseModel &noiseModel2 = impl::kSigma0_2) {
+inline boost::shared_ptr<const NonlinearFactorGraph> sharedNonlinearFactorGraph() {
   using namespace impl;
-  using symbol_shorthand::L;
   using symbol_shorthand::X;
+  using symbol_shorthand::L;
   // Create
-  std::shared_ptr<NonlinearFactorGraph> nlfg(new NonlinearFactorGraph);
+  boost::shared_ptr<NonlinearFactorGraph> nlfg(
+      new NonlinearFactorGraph);
 
   // prior on x1
-  Point2 mu(0, 0);
-  shared_nlf f1(new simulated2D::Prior(mu, noiseModel1, X(1)));
+  Point2 mu(0,0);
+  shared_nlf f1(new simulated2D::Prior(mu, sigma0_1, X(1)));
   nlfg->push_back(f1);
 
   // odometry between x1 and x2
   Point2 z2(1.5, 0);
-  shared_nlf f2(new simulated2D::Odometry(z2, noiseModel1, X(1), X(2)));
+  shared_nlf f2(new simulated2D::Odometry(z2, sigma0_1, X(1), X(2)));
   nlfg->push_back(f2);
 
   // measurement between x1 and l1
   Point2 z3(0, -1);
-  shared_nlf f3(new simulated2D::Measurement(z3, noiseModel2, X(1), L(1)));
+  shared_nlf f3(new simulated2D::Measurement(z3, sigma0_2, X(1), L(1)));
   nlfg->push_back(f3);
 
   // measurement between x2 and l1
   Point2 z4(-1.5, -1.);
-  shared_nlf f4(new simulated2D::Measurement(z4, noiseModel2, X(2), L(1)));
+  shared_nlf f4(new simulated2D::Measurement(z4, sigma0_2, X(2), L(1)));
   nlfg->push_back(f4);
 
   return nlfg;
 }
 
 /* ************************************************************************* */
-inline NonlinearFactorGraph
-createNonlinearFactorGraph(const SharedNoiseModel &noiseModel1 = impl::kSigma0_1,
-                           const SharedNoiseModel &noiseModel2 = impl::kSigma0_2) {
-  return *sharedNonlinearFactorGraph(noiseModel1, noiseModel2);
+inline NonlinearFactorGraph createNonlinearFactorGraph() {
+  return *sharedNonlinearFactorGraph();
 }
 
 /* ************************************************************************* */
@@ -222,17 +221,18 @@ inline Values createValues() {
 /* ************************************************************************* */
 inline VectorValues createVectorValues() {
   using namespace impl;
-  VectorValues c {{_l1_, Vector2(0.0, -1.0)},
-                  {_x1_, Vector2(0.0, 0.0)},
-                  {_x2_, Vector2(1.5, 0.0)}};
+  VectorValues c = boost::assign::pair_list_of<Key, Vector>
+    (_l1_, Vector2(0.0, -1.0))
+    (_x1_, Vector2(0.0, 0.0))
+    (_x2_, Vector2(1.5, 0.0));
   return c;
 }
 
 /* ************************************************************************* */
-inline std::shared_ptr<const Values> sharedNoisyValues() {
+inline boost::shared_ptr<const Values> sharedNoisyValues() {
   using symbol_shorthand::X;
   using symbol_shorthand::L;
-  std::shared_ptr<Values> c(new Values);
+  boost::shared_ptr<Values> c(new Values);
   c->insert(X(1), Point2(0.1, 0.1));
   c->insert(X(2), Point2(1.4, 0.2));
   c->insert(L(1), Point2(0.1, -1.1));
@@ -274,16 +274,16 @@ inline GaussianFactorGraph createGaussianFactorGraph() {
   GaussianFactorGraph fg;
 
   // linearized prior on x1: c[_x1_]+x1=0 i.e. x1=-c[_x1_]
-  fg.emplace_shared<JacobianFactor>(X(1), 10*I_2x2, -1.0*Vector::Ones(2));
+  fg += JacobianFactor(X(1), 10*I_2x2, -1.0*Vector::Ones(2));
 
   // odometry between x1 and x2: x2-x1=[0.2;-0.1]
-  fg.emplace_shared<JacobianFactor>(X(1), -10*I_2x2, X(2), 10*I_2x2, Vector2(2.0, -1.0));
+  fg += JacobianFactor(X(1), -10*I_2x2, X(2), 10*I_2x2, Vector2(2.0, -1.0));
 
   // measurement between x1 and l1: l1-x1=[0.0;0.2]
-  fg.emplace_shared<JacobianFactor>(X(1), -5*I_2x2, L(1), 5*I_2x2, Vector2(0.0, 1.0));
+  fg += JacobianFactor(X(1), -5*I_2x2, L(1), 5*I_2x2, Vector2(0.0, 1.0));
 
   // measurement between x2 and l1: l1-x2=[-0.2;0.3]
-  fg.emplace_shared<JacobianFactor>(X(2), -5*I_2x2, L(1), 5*I_2x2, Vector2(-1.0, 1.5));
+  fg += JacobianFactor(X(2), -5*I_2x2, L(1), 5*I_2x2, Vector2(-1.0, 1.5));
 
   return fg;
 }
@@ -327,49 +327,31 @@ inline Matrix H(const Point2& v) {
       0.0, cos(v.y())).finished();
 }
 
-struct UnaryFactor: public gtsam::NoiseModelFactorN<Point2> {
-
-  // Provide access to the Matrix& version of evaluateError:
-  using gtsam::NoiseModelFactor1<Point2>::evaluateError;
+struct UnaryFactor: public gtsam::NoiseModelFactor1<Point2> {
 
   Point2 z_;
 
   UnaryFactor(const Point2& z, const SharedNoiseModel& model, Key key) :
-    gtsam::NoiseModelFactorN<Point2>(model, key), z_(z) {
+    gtsam::NoiseModelFactor1<Point2>(model, key), z_(z) {
   }
 
-  Vector evaluateError(const Point2& x, OptionalMatrixType A) const override {
+  Vector evaluateError(const Point2& x, boost::optional<Matrix&> A = boost::none) const {
     if (A) *A = H(x);
     return (h(x) - z_);
   }
 
-  gtsam::NonlinearFactor::shared_ptr clone() const override {
-        return std::static_pointer_cast<gtsam::NonlinearFactor>(
-            gtsam::NonlinearFactor::shared_ptr(new UnaryFactor(*this))); }
 };
 
 }
 
 /* ************************************************************************* */
-inline NonlinearFactorGraph nonlinearFactorGraphWithGivenSigma(const double sigma) {
+inline boost::shared_ptr<const NonlinearFactorGraph> sharedReallyNonlinearFactorGraph() {
   using symbol_shorthand::X;
   using symbol_shorthand::L;
-  std::shared_ptr<NonlinearFactorGraph> fg(new NonlinearFactorGraph);
-  Point2 z(1.0, 0.0);
-  std::shared_ptr<smallOptimize::UnaryFactor> factor(
-      new smallOptimize::UnaryFactor(z, noiseModel::Isotropic::Sigma(2,sigma), X(1)));
-  fg->push_back(factor);
-  return *fg;
-}
-
-/* ************************************************************************* */
-inline std::shared_ptr<const NonlinearFactorGraph> sharedReallyNonlinearFactorGraph() {
-  using symbol_shorthand::X;
-  using symbol_shorthand::L;
-  std::shared_ptr<NonlinearFactorGraph> fg(new NonlinearFactorGraph);
+  boost::shared_ptr<NonlinearFactorGraph> fg(new NonlinearFactorGraph);
   Point2 z(1.0, 0.0);
   double sigma = 0.1;
-  std::shared_ptr<smallOptimize::UnaryFactor> factor(
+  boost::shared_ptr<smallOptimize::UnaryFactor> factor(
       new smallOptimize::UnaryFactor(z, noiseModel::Isotropic::Sigma(2,sigma), X(1)));
   fg->push_back(factor);
   return fg;
@@ -378,54 +360,6 @@ inline std::shared_ptr<const NonlinearFactorGraph> sharedReallyNonlinearFactorGr
 inline NonlinearFactorGraph createReallyNonlinearFactorGraph() {
   return *sharedReallyNonlinearFactorGraph();
 }
-
-/* ************************************************************************* */
-inline NonlinearFactorGraph sharedNonRobustFactorGraphWithOutliers() {
-  using symbol_shorthand::X;
-  std::shared_ptr<NonlinearFactorGraph> fg(new NonlinearFactorGraph);
-  Point2 z(0.0, 0.0);
-  double sigma = 0.1;
-
-  std::shared_ptr<PriorFactor<Point2>> factor(
-      new PriorFactor<Point2>(X(1), z, noiseModel::Isotropic::Sigma(2,sigma)));
-  // 3 noiseless inliers
-  fg->push_back(factor);
-  fg->push_back(factor);
-  fg->push_back(factor);
-
-  // 1 outlier
-  Point2 z_out(1.0, 0.0);
-  std::shared_ptr<PriorFactor<Point2>> factor_out(
-      new PriorFactor<Point2>(X(1), z_out, noiseModel::Isotropic::Sigma(2,sigma)));
-  fg->push_back(factor_out);
-
-  return *fg;
-}
-
-/* ************************************************************************* */
-inline NonlinearFactorGraph sharedRobustFactorGraphWithOutliers() {
-  using symbol_shorthand::X;
-  std::shared_ptr<NonlinearFactorGraph> fg(new NonlinearFactorGraph);
-  Point2 z(0.0, 0.0);
-  double sigma = 0.1;
-  auto gmNoise = noiseModel::Robust::Create(
-            noiseModel::mEstimator::GemanMcClure::Create(1.0), noiseModel::Isotropic::Sigma(2,sigma));
-  std::shared_ptr<PriorFactor<Point2>> factor(
-      new PriorFactor<Point2>(X(1), z, gmNoise));
-  // 3 noiseless inliers
-  fg->push_back(factor);
-  fg->push_back(factor);
-  fg->push_back(factor);
-
-  // 1 outlier
-  Point2 z_out(1.0, 0.0);
-  std::shared_ptr<PriorFactor<Point2>> factor_out(
-      new PriorFactor<Point2>(X(1), z_out, gmNoise));
-  fg->push_back(factor_out);
-
-  return *fg;
-}
-
 
 /* ************************************************************************* */
 inline std::pair<NonlinearFactorGraph, Values> createNonlinearSmoother(int T) {
@@ -439,19 +373,19 @@ inline std::pair<NonlinearFactorGraph, Values> createNonlinearSmoother(int T) {
 
   // prior on x1
   Point2 x1(1.0, 0.0);
-  shared_nlf prior(new simulated2D::Prior(x1, kSigma1_0, X(1)));
+  shared_nlf prior(new simulated2D::Prior(x1, sigma1_0, X(1)));
   nlfg.push_back(prior);
   poses.insert(X(1), x1);
 
   for (int t = 2; t <= T; t++) {
     // odometry between x_t and x_{t-1}
     Point2 odo(1.0, 0.0);
-    shared_nlf odometry(new simulated2D::Odometry(odo, kSigma1_0, X(t - 1), X(t)));
+    shared_nlf odometry(new simulated2D::Odometry(odo, sigma1_0, X(t - 1), X(t)));
     nlfg.push_back(odometry);
 
     // measurement on x_t is like perfect GPS
     Point2 xt(t, 0);
-    shared_nlf measurement(new simulated2D::Prior(xt, kSigma1_0, X(t)));
+    shared_nlf measurement(new simulated2D::Prior(xt, sigma1_0, X(t)));
     nlfg.push_back(measurement);
 
     // initial estimate
@@ -463,7 +397,10 @@ inline std::pair<NonlinearFactorGraph, Values> createNonlinearSmoother(int T) {
 
 /* ************************************************************************* */
 inline GaussianFactorGraph createSmoother(int T) {
-  const auto [nlfg, poses] = createNonlinearSmoother(T);
+  NonlinearFactorGraph nlfg;
+  Values poses;
+  boost::tie(nlfg, poses) = createNonlinearSmoother(T);
+
   return *nlfg.linearize(poses);
 }
 
@@ -476,7 +413,7 @@ inline GaussianFactorGraph createSimpleConstraintGraph() {
   Vector b1(2);
   b1(0) = 1.0;
   b1(1) = -1.0;
-  JacobianFactor::shared_ptr f1(new JacobianFactor(_x_, Ax, b1, kSigma0_1));
+  JacobianFactor::shared_ptr f1(new JacobianFactor(_x_, Ax, b1, sigma0_1));
 
   // create binary constraint factor
   // between _x_ and _y_, that is going to be the only factor on _y_
@@ -486,7 +423,7 @@ inline GaussianFactorGraph createSimpleConstraintGraph() {
   Matrix Ay1 = I_2x2 * -1;
   Vector b2 = Vector2(0.0, 0.0);
   JacobianFactor::shared_ptr f2(new JacobianFactor(_x_, Ax1, _y_, Ay1, b2,
-      kConstrainedModel));
+      constraintModel));
 
   // construct the graph
   GaussianFactorGraph fg;
@@ -517,8 +454,8 @@ inline GaussianFactorGraph createSingleConstraintGraph() {
   Vector b1(2);
   b1(0) = 1.0;
   b1(1) = -1.0;
-  //GaussianFactor::shared_ptr f1(new JacobianFactor(_x_, kSigma0_1->Whiten(Ax), kSigma0_1->whiten(b1), kSigma0_1));
-  JacobianFactor::shared_ptr f1(new JacobianFactor(_x_, Ax, b1, kSigma0_1));
+  //GaussianFactor::shared_ptr f1(new JacobianFactor(_x_, sigma0_1->Whiten(Ax), sigma0_1->whiten(b1), sigma0_1));
+  JacobianFactor::shared_ptr f1(new JacobianFactor(_x_, Ax, b1, sigma0_1));
 
   // create binary constraint factor
   // between _x_ and _y_, that is going to be the only factor on _y_
@@ -532,7 +469,7 @@ inline GaussianFactorGraph createSingleConstraintGraph() {
   Matrix Ay1 = I_2x2 * 10;
   Vector b2 = Vector2(1.0, 2.0);
   JacobianFactor::shared_ptr f2(new JacobianFactor(_x_, Ax1, _y_, Ay1, b2,
-      kConstrainedModel));
+      constraintModel));
 
   // construct the graph
   GaussianFactorGraph fg;
@@ -545,7 +482,9 @@ inline GaussianFactorGraph createSingleConstraintGraph() {
 /* ************************************************************************* */
 inline VectorValues createSingleConstraintValues() {
   using namespace impl;
-  VectorValues config{{_x_, Vector2(1.0, -1.0)}, {_y_, Vector2(0.2, 0.1)}};
+  VectorValues config = boost::assign::pair_list_of<Key, Vector>
+    (_x_, Vector2(1.0, -1.0))
+    (_y_, Vector2(0.2, 0.1));
   return config;
 }
 
@@ -555,7 +494,7 @@ inline GaussianFactorGraph createMultiConstraintGraph() {
   // unary factor 1
   Matrix A = I_2x2;
   Vector b = Vector2(-2.0, 2.0);
-  JacobianFactor::shared_ptr lf1(new JacobianFactor(_x_, A, b, kSigma0_1));
+  JacobianFactor::shared_ptr lf1(new JacobianFactor(_x_, A, b, sigma0_1));
 
   // constraint 1
   Matrix A11(2, 2);
@@ -574,7 +513,7 @@ inline GaussianFactorGraph createMultiConstraintGraph() {
   b1(0) = 1.0;
   b1(1) = 2.0;
   JacobianFactor::shared_ptr lc1(new JacobianFactor(_x_, A11, _y_, A12, b1,
-      kConstrainedModel));
+      constraintModel));
 
   // constraint 2
   Matrix A21(2, 2);
@@ -593,7 +532,7 @@ inline GaussianFactorGraph createMultiConstraintGraph() {
   b2(0) = 3.0;
   b2(1) = 4.0;
   JacobianFactor::shared_ptr lc2(new JacobianFactor(_x_, A21, _z_, A22, b2,
-      kConstrainedModel));
+      constraintModel));
 
   // construct the graph
   GaussianFactorGraph fg;
@@ -607,9 +546,10 @@ inline GaussianFactorGraph createMultiConstraintGraph() {
 /* ************************************************************************* */
 inline VectorValues createMultiConstraintValues() {
   using namespace impl;
-  VectorValues config{{_x_, Vector2(-2.0, 2.0)},
-                      {_y_, Vector2(-0.1, 0.4)},
-                      {_z_, Vector2(-4.0, 5.0)}};
+  VectorValues config = boost::assign::pair_list_of<Key, Vector>
+    (_x_, Vector2(-2.0, 2.0))
+    (_y_, Vector2(-0.1, 0.4))
+    (_z_, Vector2(-4.0, 5.0));
   return config;
 }
 
@@ -623,7 +563,7 @@ inline Symbol key(size_t x, size_t y) {
 } // \namespace impl
 
 /* ************************************************************************* */
-inline std::pair<GaussianFactorGraph, VectorValues> planarGraph(size_t N) {
+inline boost::tuple<GaussianFactorGraph, VectorValues> planarGraph(size_t N) {
   using namespace impl;
 
   // create empty graph
@@ -660,8 +600,8 @@ inline std::pair<GaussianFactorGraph, VectorValues> planarGraph(size_t N) {
       xtrue.insert(key(x, y), Point2((double)x, (double)y));
 
   // linearize around zero
-  std::shared_ptr<GaussianFactorGraph> gfg = nlfg.linearize(zeros);
-  return std::make_pair(*gfg, xtrue);
+  boost::shared_ptr<GaussianFactorGraph> gfg = nlfg.linearize(zeros);
+  return boost::make_tuple(*gfg, xtrue);
 }
 
 /* ************************************************************************* */
@@ -674,8 +614,8 @@ inline Ordering planarOrdering(size_t N) {
 }
 
 /* ************************************************************************* */
-inline std::pair<GaussianFactorGraph, GaussianFactorGraph> splitOffPlanarTree(
-    size_t N, const GaussianFactorGraph& original) {
+inline std::pair<GaussianFactorGraph, GaussianFactorGraph > splitOffPlanarTree(size_t N,
+    const GaussianFactorGraph& original) {
   GaussianFactorGraph T, C;
 
   // Add the x11 constraint to the tree
@@ -684,7 +624,8 @@ inline std::pair<GaussianFactorGraph, GaussianFactorGraph> splitOffPlanarTree(
   // Add all horizontal constraints to the tree
   size_t i = 1;
   for (size_t x = 1; x < N; x++)
-    for (size_t y = 1; y <= N; y++, i++) T.push_back(original[i]);
+    for (size_t y = 1; y <= N; y++, i++)
+      T.push_back(original[i]);
 
   // Add first vertical column of constraints to T, others to C
   for (size_t x = 1; x <= N; x++)

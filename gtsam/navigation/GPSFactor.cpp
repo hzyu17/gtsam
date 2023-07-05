@@ -24,8 +24,7 @@ namespace gtsam {
 
 //***************************************************************************
 void GPSFactor::print(const string& s, const KeyFormatter& keyFormatter) const {
-  cout << (s.empty() ? "" : s + " ") << "GPSFactor on " << keyFormatter(key())
-       << "\n";
+  cout << s << "GPSFactor on " << keyFormatter(key()) << "\n";
   cout << "  GPS measurement: " << nT_ << "\n";
   noiseModel_->print("  noise model: ");
 }
@@ -33,12 +32,12 @@ void GPSFactor::print(const string& s, const KeyFormatter& keyFormatter) const {
 //***************************************************************************
 bool GPSFactor::equals(const NonlinearFactor& expected, double tol) const {
   const This* e = dynamic_cast<const This*>(&expected);
-  return e != nullptr && Base::equals(*e, tol) && traits<Point3>::Equals(nT_, e->nT_, tol);
+  return e != NULL && Base::equals(*e, tol) && traits<Point3>::Equals(nT_, e->nT_, tol);
 }
 
 //***************************************************************************
 Vector GPSFactor::evaluateError(const Pose3& p,
-    OptionalMatrixType H) const {
+    boost::optional<Matrix&> H) const {
   return p.translation(H) -nT_;
 }
 
@@ -74,13 +73,13 @@ void GPSFactor2::print(const string& s, const KeyFormatter& keyFormatter) const 
 //***************************************************************************
 bool GPSFactor2::equals(const NonlinearFactor& expected, double tol) const {
   const This* e = dynamic_cast<const This*>(&expected);
-  return e != nullptr && Base::equals(*e, tol) &&
+  return e != NULL && Base::equals(*e, tol) &&
          traits<Point3>::Equals(nT_, e->nT_, tol);
 }
 
 //***************************************************************************
 Vector GPSFactor2::evaluateError(const NavState& p,
-    OptionalMatrixType H) const {
+    boost::optional<Matrix&> H) const {
   return p.position(H) -nT_;
 }
 

@@ -17,6 +17,7 @@
  */
 
 // For an explanation of headers below, please see Pose2SLAMExample.cpp
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -36,13 +37,13 @@ int main (int argc, char** argv) {
   Values::shared_ptr initial;
   SharedDiagonal model = noiseModel::Diagonal::Sigmas((Vector(3) << 0.05, 0.05, 5.0 * M_PI / 180.0).finished());
   string graph_file = findExampleDataFile("w100.graph");
-  std::tie(graph, initial) = load2D(graph_file, model);
+  boost::tie(graph, initial) = load2D(graph_file, model);
   initial->print("Initial estimate:\n");
 
   // Add a Gaussian prior on first poses
   Pose2 priorMean(0.0, 0.0, 0.0); // prior at origin
   SharedDiagonal priorNoise = noiseModel::Diagonal::Sigmas(Vector3(0.01, 0.01, 0.01));
-  graph -> addPrior(0, priorMean, priorNoise);
+  graph->push_back(PriorFactor<Pose2>(0, priorMean, priorNoise));
 
   // Single Step Optimization using Levenberg-Marquardt
   Values result = LevenbergMarquardtOptimizer(*graph, *initial).optimize();

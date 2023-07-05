@@ -17,8 +17,6 @@
  * @date     6/16/16
  */
 
-#pragma once
-
 #include <gtsam_unstable/linear/QP.h>
 #include <gtsam_unstable/linear/ActiveSetSolver.h>
 #include <gtsam_unstable/linear/QPInitSolver.h>
@@ -34,14 +32,9 @@ struct QPPolicy {
   static constexpr double maxAlpha = 1.0;
 
   /// Simply the cost of the QP problem
-  static const GaussianFactorGraph buildCostFunction(const QP& qp,
-      const VectorValues& xk = VectorValues()) {
-    GaussianFactorGraph no_constant_factor;
-    for (auto factor : qp.cost) {
-      HessianFactor hf = static_cast<HessianFactor>(*factor);
-      no_constant_factor.push_back(hf);
-    }
-    return no_constant_factor;
+  static const GaussianFactorGraph& buildCostFunction(
+      const QP& qp, const VectorValues& xk = VectorValues()) {
+    return qp.cost;
   }
 };
 

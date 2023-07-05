@@ -17,7 +17,7 @@
  */
 
 #include <gtsam/geometry/triangulation.h>
-#include <gtsam/geometry/PinholeCamera.h>
+#include <gtsam/geometry/SimpleCamera.h>
 #include <gtsam/geometry/StereoCamera.h>
 #include <gtsam/geometry/Cal3Bundler.h>
 #include <gtsam/nonlinear/Expression.h>
@@ -25,18 +25,21 @@
 #include <gtsam/base/numericalDerivative.h>
 #include <CppUnitLite/TestHarness.h>
 
+#include <boost/assign.hpp>
+#include <boost/assign/std/vector.hpp>
+
 using namespace std;
 using namespace gtsam;
-using namespace std::placeholders;
+using namespace boost::assign;
 
 // Some common constants
-static const std::shared_ptr<Cal3_S2> sharedCal = //
-    std::make_shared<Cal3_S2>(1500, 1200, 0, 640, 480);
+static const boost::shared_ptr<Cal3_S2> sharedCal = //
+    boost::make_shared<Cal3_S2>(1500, 1200, 0, 640, 480);
 
 // Looking along X-axis, 1 meter above ground plane (x-y)
 static const Rot3 upright = Rot3::Ypr(-M_PI / 2, 0., -M_PI / 2);
 static const Pose3 pose1 = Pose3(upright, gtsam::Point3(0, 0, 1));
-PinholeCamera<Cal3_S2> camera1(pose1, *sharedCal);
+SimpleCamera camera1(pose1, *sharedCal);
 
 // landmark ~5 meters infront of camera
 static const Point3 landmark(5, 0.5, 1.2);
@@ -49,7 +52,7 @@ TEST( triangulation, TriangulationFactor ) {
 
   Key pointKey(1);
   SharedNoiseModel model;
-  typedef TriangulationFactor<PinholeCamera<Cal3_S2> > Factor;
+  typedef TriangulationFactor<SimpleCamera> Factor;
   Factor factor(camera1, z1, model, pointKey);
 
   // Use the factor to calculate the Jacobians
@@ -57,7 +60,7 @@ TEST( triangulation, TriangulationFactor ) {
   factor.evaluateError(landmark, HActual);
 
   Matrix HExpected = numericalDerivative11<Vector,Point3>(
-		  [&factor](const Point3& l) { return factor.evaluateError(l);}, landmark);
+      boost::bind(&Factor::evaluateError, &factor, _1, boost::none), landmark);
 
   // Verify the Jacobians are correct
   CHECK(assert_equal(HExpected, HActual, 1e-3));
@@ -80,16 +83,14 @@ TEST( triangulation, TriangulationFactorStereo ) {
   Matrix HActual;
   factor.evaluateError(landmark, HActual);
 
-  Matrix HExpected = numericalDerivative11<Vector, Point3>(
-		  [&factor](const Point3& l) { return factor.evaluateError(l);}, landmark);
+  Matrix HExpected = numericalDerivative11<Vector,Point3>(
+      boost::bind(&Factor::evaluateError, &factor, _1, boost::none), landmark);
 
   // Verify the Jacobians are correct
   CHECK(assert_equal(HExpected, HActual, 1e-3));
 
   // compare same problem against expression factor
-  Expression<StereoPoint2>::UnaryFunction<Point3>::type f =
-      std::bind(&StereoCamera::project2, camera2, std::placeholders::_1,
-                nullptr, std::placeholders::_2);
+  Expression<StereoPoint2>::UnaryFunction<Point3>::type f = boost::bind(&StereoCamera::project2, camera2, _1, boost::none, _2);
   Expression<Point3> point_(pointKey);
   Expression<StereoPoint2> project2_(f, point_);
 

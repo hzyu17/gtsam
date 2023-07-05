@@ -21,10 +21,9 @@
 #include <gtsam/inference/Ordering.h>
 #include <gtsam/base/types.h>
 #include <gtsam/base/FastVector.h>
+#include <boost/optional.hpp>
 
 #include <string>
-#include <mutex>
-#include <optional>
 
 namespace gtsam {
 
@@ -52,16 +51,16 @@ namespace gtsam {
     typedef BayesTreeCliqueBase<DERIVED, FACTORGRAPH> This;
     typedef DERIVED DerivedType;
     typedef EliminationTraits<FACTORGRAPH> EliminationTraitsType;
-    typedef std::shared_ptr<This> shared_ptr;
-    typedef std::weak_ptr<This> weak_ptr;
-    typedef std::shared_ptr<DerivedType> derived_ptr;
-    typedef std::weak_ptr<DerivedType> derived_weak_ptr;
+    typedef boost::shared_ptr<This> shared_ptr;
+    typedef boost::weak_ptr<This> weak_ptr;
+    typedef boost::shared_ptr<DerivedType> derived_ptr;
+    typedef boost::weak_ptr<DerivedType> derived_weak_ptr;
 
   public:
     typedef FACTORGRAPH FactorGraphType;
     typedef typename EliminationTraitsType::BayesNetType BayesNetType;
     typedef typename BayesNetType::ConditionalType ConditionalType;
-    typedef std::shared_ptr<ConditionalType> sharedConditional;
+    typedef boost::shared_ptr<ConditionalType> sharedConditional;
     typedef typename FactorGraphType::FactorType FactorType;
     typedef typename FactorGraphType::Eliminate Eliminate;
 
@@ -70,52 +69,22 @@ namespace gtsam {
     /// @name Standard Constructors
     /// @{
 
-    /// Default constructor
+    /** Default constructor */
     BayesTreeCliqueBase() : problemSize_(1) {}
 
-    /// Construct from a conditional, leaving parent and child pointers
-    /// uninitialized.
-    BayesTreeCliqueBase(const sharedConditional& conditional)
-        : conditional_(conditional), problemSize_(1) {}
-
-    /// Shallow copy constructor.
-    BayesTreeCliqueBase(const BayesTreeCliqueBase& c)
-        : conditional_(c.conditional_),
-          parent_(c.parent_),
-          children(c.children),
-          problemSize_(c.problemSize_),
-          is_root(c.is_root) {}
-
-    /// Shallow copy assignment constructor
-    BayesTreeCliqueBase& operator=(const BayesTreeCliqueBase& c) {
-      conditional_ = c.conditional_;
-      parent_ = c.parent_;
-      children = c.children;
-      problemSize_ = c.problemSize_;
-      is_root = c.is_root;
-      return *this;
-    }
-
-    // Virtual destructor.
-    virtual ~BayesTreeCliqueBase() {}
+    /** Construct from a conditional, leaving parent and child pointers uninitialized */
+    BayesTreeCliqueBase(const sharedConditional& conditional) : conditional_(conditional), problemSize_(1) {}
 
     /// @}
 
-    /// This stores the Cached separator marginal P(S)
-    mutable std::optional<FactorGraphType> cachedSeparatorMarginal_;
-    /// This protects Cached seperator marginal P(S) from concurrent read/writes
-    /// as many the functions which access it are const (hence the mutable)
-    /// leading to the false impression that these const functions are thread-safe
-    /// which is not true due to these mutable values. This is fixed by applying this mutex.
-    mutable std::mutex cachedSeparatorMarginalMutex_;
+    /// This stores the Cached separator margnal P(S)
+    mutable boost::optional<FactorGraphType> cachedSeparatorMarginal_;
 
   public:
     sharedConditional conditional_;
     derived_weak_ptr parent_;
     FastVector<derived_ptr> children;
     int problemSize_;
-
-    bool is_root = false;
 
     /// Fill the elimination result produced during elimination.  Here this just stores the
     /// conditional and ignores the remaining factor, but this is overridden in ISAM2Clique
@@ -129,9 +98,7 @@ namespace gtsam {
     bool equals(const DERIVED& other, double tol = 1e-9) const;
 
     /** print this node */
-    virtual void print(
-        const std::string& s = "",
-        const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
+    void print(const std::string& s = "", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
     /// @}
     /// @name Standard Interface
@@ -174,47 +141,34 @@ namespace gtsam {
      */
     void deleteCachedShortcuts();
 
-    const std::optional<FactorGraphType>& cachedSeparatorMarginal() const {
-      std::lock_guard<std::mutex> marginalLock(cachedSeparatorMarginalMutex_);
-      return cachedSeparatorMarginal_; 
-    }
+    const boost::optional<FactorGraphType>& cachedSeparatorMarginal() const {
+      return cachedSeparatorMarginal_; }
 
     friend class BayesTree<DerivedType>;
 
   protected:
 
     /// Calculate set \f$ S \setminus B \f$ for shortcut calculations
-    KeyVector separator_setminus_B(const derived_ptr& B) const;
+    FastVector<Key> separator_setminus_B(const derived_ptr& B) const;
 
     /** Determine variable indices to keep in recursive separator shortcut calculation The factor
      *  graph p_Cp_B has keys from the parent clique Cp and from B. But we only keep the variables
      *  not in S union B. */
-    KeyVector shortcut_indices(const derived_ptr& B, const FactorGraphType& p_Cp_B) const;
+    FastVector<Key> shortcut_indices(const derived_ptr& B, const FactorGraphType& p_Cp_B) const;
 
     /** Non-recursive delete cached shortcuts and marginals - internal only. */
-    void deleteCachedShortcutsNonRecursive() { 
-      std::lock_guard<std::mutex> marginalLock(cachedSeparatorMarginalMutex_);
-      cachedSeparatorMarginal_ = {}; 
-    }
+    void deleteCachedShortcutsNonRecursive() { cachedSeparatorMarginal_ = boost::none; }
 
   private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
     /** Serialization function */
     friend class boost::serialization::access;
     template<class ARCHIVE>
     void serialize(ARCHIVE & ar, const unsigned int /*version*/) {
-      if(!parent_.lock()) {
-        is_root = true;
-      }
-      ar & BOOST_SERIALIZATION_NVP(is_root);
       ar & BOOST_SERIALIZATION_NVP(conditional_);
-      if (!is_root) { // TODO(fan): Workaround for boost/serialization #119
-        ar & BOOST_SERIALIZATION_NVP(parent_);
-      }
+      ar & BOOST_SERIALIZATION_NVP(parent_);
       ar & BOOST_SERIALIZATION_NVP(children);
     }
-#endif
 
     /// @}
 

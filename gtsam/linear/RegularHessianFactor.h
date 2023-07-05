@@ -36,7 +36,7 @@ public:
    * quadratic term (the Hessian matrix) provided in row-order, gs the pieces
    * of the linear vector term, and f the constant term.
    */
-  RegularHessianFactor(const KeyVector& js,
+  RegularHessianFactor(const std::vector<Key>& js,
       const std::vector<Matrix>& Gs, const std::vector<Vector>& gs, double f) :
       HessianFactor(js, Gs, gs, f) {
     checkInvariants();
@@ -77,14 +77,8 @@ public:
 
   /// Construct from a GaussianFactorGraph
   RegularHessianFactor(const GaussianFactorGraph& factors,
-                       const Scatter& scatter)
+                       boost::optional<const Scatter&> scatter = boost::none)
       : HessianFactor(factors, scatter) {
-    checkInvariants();
-  }
-
-  /// Construct from a GaussianFactorGraph
-  RegularHessianFactor(const GaussianFactorGraph& factors)
-      : HessianFactor(factors) {
     checkInvariants();
   }
 
@@ -109,8 +103,8 @@ private:
 public:
 
   /** y += alpha * A'*A*x */
-  void multiplyHessianAdd(double alpha, const VectorValues& x,
-      VectorValues& y) const override {
+  virtual void multiplyHessianAdd(double alpha, const VectorValues& x,
+      VectorValues& y) const {
     HessianFactor::multiplyHessianAdd(alpha, x, y);
   }
 
@@ -182,7 +176,7 @@ public:
   }
 
   /** Return the diagonal of the Hessian for this factor (raw memory version) */
-  void hessianDiagonal(double* d) const override {
+  virtual void hessianDiagonal(double* d) const {
 
     // Loop over all variables in the factor
     for (DenseIndex pos = 0; pos < (DenseIndex) size(); ++pos) {
@@ -193,7 +187,7 @@ public:
   }
 
   /// Add gradient at zero to d TODO: is it really the goal to add ??
-  void gradientAtZero(double* d) const override {
+  virtual void gradientAtZero(double* d) const {
 
     // Loop over all variables in the factor
     for (DenseIndex pos = 0; pos < (DenseIndex) size(); ++pos) {

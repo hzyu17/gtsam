@@ -1,5 +1,5 @@
 /**
- * @file Mechanization_bRn2.h
+ * @file Mechanization_bRn.h
  * @date Jan 25, 2012
  * @author Chris Beall
  * @author Frank Dellaert
@@ -9,7 +9,7 @@
 
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/base/Vector.h>
-#include <gtsam_unstable/dllexport.h>
+#include <gtsam_unstable/base/dllexport.h>
 #include <list>
 
 namespace gtsam {

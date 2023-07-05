@@ -33,7 +33,7 @@ using namespace gtsam;
 
 typedef PinholePose<Cal3_S2> Camera;
 
-static const Cal3_S2::shared_ptr K = std::make_shared<Cal3_S2>(625, 625, 0, 0, 0);
+static const Cal3_S2::shared_ptr K = boost::make_shared<Cal3_S2>(625, 625, 0, 0, 0);
 
 static const Pose3 pose(Rot3(Vector3(1, -1, -1).asDiagonal()), Point3(0, 0, 0.5));
 static const Camera camera(pose, K);
@@ -58,19 +58,17 @@ TEST( PinholePose, constructor)
 }
 
 //******************************************************************************
-/* Already in testPinholeCamera??? 
 TEST(PinholeCamera, Pose) {
 
   Matrix actualH;
   EXPECT(assert_equal(pose, camera.getPose(actualH)));
 
   // Check derivative
-  std::function<Pose3(Camera)> f = //
-      std::bind(&Camera::getPose,_1,{});
+  boost::function<Pose3(Camera)> f = //
+      boost::bind(&Camera::getPose,_1,boost::none);
   Matrix numericalH = numericalDerivative11<Pose3,Camera>(f,camera);
   EXPECT(assert_equal(numericalH, actualH, 1e-9));
 }
-*/
 
 /* ************************************************************************* */
 TEST( PinholePose, lookat)
@@ -209,7 +207,7 @@ static Point3 backproject(const Pose3& pose, const Cal3_S2& cal,
   return Camera(pose, cal.vector()).backproject(p, depth);
 }
 
-TEST( PinholePose, DbackprojectRegCamera)
+TEST( PinholePose, Dbackproject)
 {
   Matrix36 Dpose;
   Matrix31 Ddepth;
@@ -263,8 +261,8 @@ TEST( PinholePose, range1) {
 
 /* ************************************************************************* */
 typedef PinholePose<Cal3Bundler> Camera2;
-static const std::shared_ptr<Cal3Bundler> K2 =
-    std::make_shared<Cal3Bundler>(625, 1e-3, 1e-3);
+static const boost::shared_ptr<Cal3Bundler> K2 =
+    boost::make_shared<Cal3Bundler>(625, 1e-3, 1e-3);
 static const Camera2 camera2(pose1, K2);
 static double range2(const Camera& camera, const Camera2& camera2) {
   return camera.range<Cal3Bundler>(camera2);

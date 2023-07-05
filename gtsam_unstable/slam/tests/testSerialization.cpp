@@ -7,25 +7,27 @@
  * @author Alex Cunningham
  */
 
-#include <gtsam_unstable/slam/serialization.h>
+#include <CppUnitLite/TestHarness.h>
+#include <iostream>
+
+#include <gtsam/slam/serialization.h>
 
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam/geometry/Pose3.h>
 
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/sam/BearingRangeFactor.h>
 
-#include <CppUnitLite/TestHarness.h>
-
-#include <boost/filesystem.hpp>
-
-#include <iostream>
-#include <cstdlib>
+#include <stdlib.h>
 #include <fstream>
 #include <sstream>
+#include <boost/assign/std/vector.hpp>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace gtsam;
+using namespace boost::assign;
 namespace fs = boost::filesystem;
 #ifdef TOPSRCDIR
 static string topdir = TOPSRCDIR;
@@ -46,7 +48,7 @@ Values exampleValues() {
 
 NonlinearFactorGraph exampleGraph() {
   NonlinearFactorGraph graph;
-  graph.addPrior(234, Pose2(1.0, 2.0, 0.3), noiseModel::Diagonal::Sigmas(Vector::Ones(3)));
+  graph.add(PriorFactor<Pose2>(234, Pose2(1.0, 2.0, 0.3), noiseModel::Diagonal::Sigmas(Vector::Ones(3))));
   graph.add(BetweenFactor<Pose2>(234, 567, Pose2(1.0, 2.0, 0.3), noiseModel::Diagonal::Sigmas(Vector::Ones(3))));
   graph.add(BearingRangeFactor<Pose2,Point2>(234, 567, Rot2::fromAngle(0.3), 2.0, noiseModel::Diagonal::Sigmas(Vector::Ones(2))));
   return graph;

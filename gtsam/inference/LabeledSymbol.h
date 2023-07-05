@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <functional>
 #include <gtsam/inference/Symbol.h>
 
 namespace gtsam {
@@ -89,30 +88,24 @@ public:
    */
 
   // Checks only the type
-  static std::function<bool(gtsam::Key)> TypeTest(unsigned char c);
+  static boost::function<bool(gtsam::Key)> TypeTest(unsigned char c);
 
   // Checks only the robot ID (label_)
-  static std::function<bool(gtsam::Key)> LabelTest(unsigned char label);
+  static boost::function<bool(gtsam::Key)> LabelTest(unsigned char label);
 
   // Checks both type and the robot ID
-  static std::function<bool(gtsam::Key)> TypeLabelTest(unsigned char c, unsigned char label);
+  static boost::function<bool(gtsam::Key)> TypeLabelTest(unsigned char c, unsigned char label);
 
   // Converts to upper/lower versions of labels
   LabeledSymbol upper() const { return LabeledSymbol(c_, toupper(label_), j_); }
   LabeledSymbol lower() const { return LabeledSymbol(c_, tolower(label_), j_); }
 
-  // Create a new symbol with a different character.
+  // Create a new symbol with a different value
   LabeledSymbol newChr(unsigned char c) const { return LabeledSymbol(c, label_, j_); }
-
-  // Create a new symbol with a different label.
   LabeledSymbol newLabel(unsigned char label) const { return LabeledSymbol(c_, label, j_); }
-
-  /// Output stream operator that can be used with key_formatter (see Key.h).
-  friend GTSAM_EXPORT std::ostream &operator<<(std::ostream &, const LabeledSymbol &);
 
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
@@ -121,7 +114,6 @@ private:
     ar & BOOST_SERIALIZATION_NVP(label_);
     ar & BOOST_SERIALIZATION_NVP(j_);
   }
-#endif
 }; // \class LabeledSymbol
 
 /** Create a symbol key from a character, label and index, i.e. xA5. */

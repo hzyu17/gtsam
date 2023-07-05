@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -29,6 +29,10 @@
 #undef CHECK
 #include <CppUnitLite/TestHarness.h>
 
+#include <boost/assign/list_of.hpp>
+using boost::assign::list_of;
+using boost::assign::map_list_of;
+
 using namespace std;
 using namespace gtsam;
 
@@ -37,27 +41,27 @@ typedef PinholeCamera<Cal3Bundler> Camera;
 
 //******************************************************************************
 TEST(Manifold, SomeManifoldsGTSAM) {
-  //GTSAM_CONCEPT_ASSERT(IsManifold<int>); // integer is not a manifold
-  GTSAM_CONCEPT_ASSERT(IsManifold<Camera>);
-  GTSAM_CONCEPT_ASSERT(IsManifold<Cal3_S2>);
-  GTSAM_CONCEPT_ASSERT(IsManifold<Cal3Bundler>);
-  GTSAM_CONCEPT_ASSERT(IsManifold<Camera>);
+  //BOOST_CONCEPT_ASSERT((IsManifold<int>)); // integer is not a manifold
+  BOOST_CONCEPT_ASSERT((IsManifold<Camera>));
+  BOOST_CONCEPT_ASSERT((IsManifold<Cal3_S2>));
+  BOOST_CONCEPT_ASSERT((IsManifold<Cal3Bundler>));
+  BOOST_CONCEPT_ASSERT((IsManifold<Camera>));
 }
 
 //******************************************************************************
 TEST(Manifold, SomeLieGroupsGTSAM) {
-  GTSAM_CONCEPT_ASSERT(IsLieGroup<Rot2>);
-  GTSAM_CONCEPT_ASSERT(IsLieGroup<Pose2>);
-  GTSAM_CONCEPT_ASSERT(IsLieGroup<Rot3>);
-  GTSAM_CONCEPT_ASSERT(IsLieGroup<Pose3>);
+  BOOST_CONCEPT_ASSERT((IsLieGroup<Rot2>));
+  BOOST_CONCEPT_ASSERT((IsLieGroup<Pose2>));
+  BOOST_CONCEPT_ASSERT((IsLieGroup<Rot3>));
+  BOOST_CONCEPT_ASSERT((IsLieGroup<Pose3>));
 }
 
 //******************************************************************************
 TEST(Manifold, SomeVectorSpacesGTSAM) {
-  GTSAM_CONCEPT_ASSERT(IsVectorSpace<double>);
-  GTSAM_CONCEPT_ASSERT(IsVectorSpace<float>);
-  GTSAM_CONCEPT_ASSERT(IsVectorSpace<Point2>);
-  GTSAM_CONCEPT_ASSERT(IsVectorSpace<Matrix24>);
+  BOOST_CONCEPT_ASSERT((IsVectorSpace<double>));
+  BOOST_CONCEPT_ASSERT((IsVectorSpace<float>));
+  BOOST_CONCEPT_ASSERT((IsVectorSpace<Point2>));
+  BOOST_CONCEPT_ASSERT((IsVectorSpace<Matrix24>));
 }
 
 //******************************************************************************
@@ -135,7 +139,7 @@ TEST(Manifold, DefaultChart) {
 
   Vector v3(3);
   v3 << 1, 1, 1;
-  Rot3 I = Rot3::Identity();
+  Rot3 I = Rot3::identity();
   Rot3 R = I.retract(v3);
   //DefaultChart<Rot3> chart5;
   EXPECT(assert_equal(v3, traits<Rot3>::Local(I, R)));
@@ -143,6 +147,32 @@ TEST(Manifold, DefaultChart) {
   // Check zero vector
   //DefaultChart<Rot3> chart6;
   EXPECT(assert_equal((Vector) Z_3x1, traits<Rot3>::Local(R, R)));
+}
+
+//******************************************************************************
+typedef ProductManifold<Point2,Point2> MyPoint2Pair;
+
+// Define any direct product group to be a model of the multiplicative Group concept
+namespace gtsam {
+template<> struct traits<MyPoint2Pair> : internal::ManifoldTraits<MyPoint2Pair> {
+  static void Print(const MyPoint2Pair& m, const string& s = "") {
+    cout << s << "(" << m.first << "," << m.second << ")" << endl;
+  }
+  static bool Equals(const MyPoint2Pair& m1, const MyPoint2Pair& m2, double tol = 1e-8) {
+    return m1 == m2;
+  }
+};
+}
+
+TEST(Manifold, ProductManifold) {
+  BOOST_CONCEPT_ASSERT((IsManifold<MyPoint2Pair>));
+  MyPoint2Pair pair1(Point2(0,0),Point2(0,0));
+  Vector4 d;
+  d << 1,2,3,4;
+  MyPoint2Pair expected(Point2(1,2),Point2(3,4));
+  MyPoint2Pair pair2 = pair1.retract(d);
+  EXPECT(assert_equal(expected,pair2,1e-9));
+  EXPECT(assert_equal(d, pair1.localCoordinates(pair2),1e-9));
 }
 
 //******************************************************************************

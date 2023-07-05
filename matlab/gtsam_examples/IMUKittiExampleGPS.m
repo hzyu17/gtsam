@@ -52,7 +52,7 @@ IMU_params.setOmegaCoriolis(w_coriolis);
 %% Solver object
 isamParams = ISAM2Params;
 isamParams.setFactorization('CHOLESKY');
-isamParams.relinearizeSkip = 10;
+isamParams.setRelinearizeSkip(10);
 isam = gtsam.ISAM2(isamParams);
 newFactors = NonlinearFactorGraph;
 newValues = Values;
@@ -99,7 +99,7 @@ for measurementIndex = firstGPSPose:length(GPS_data)
     newFactors.add(ImuFactor( ...
       currentPoseKey-1, currentVelKey-1, ...
       currentPoseKey, currentVelKey, ...
-      currentBiasKey-1, currentSummarizedMeasurement));
+      currentBiasKey, currentSummarizedMeasurement));
 
     % Bias evolution as given in the IMU metadata
     newFactors.add(BetweenFactorConstantBias(currentBiasKey-1, currentBiasKey, imuBias.ConstantBias(zeros(3,1), zeros(3,1)), ...

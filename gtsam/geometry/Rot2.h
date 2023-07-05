@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -14,22 +14,20 @@
  * @brief 2D rotation
  * @date Dec 9, 2009
  * @author Frank Dellaert
- * @author John Lambert
  */
 
 #pragma once
 
 #include <gtsam/geometry/Point2.h>
 #include <gtsam/base/Lie.h>
-
-#include <random>
+#include <boost/optional.hpp>
 
 namespace gtsam {
 
   /**
    * Rotation matrix
    * NOTE: the angle theta is in radians unless explicitly stated
-   * @ingroup geometry
+   * @addtogroup geometry
    * \nosubgrouping
    */
   class GTSAM_EXPORT Rot2 : public LieGroup<Rot2, 1> {
@@ -50,9 +48,6 @@ namespace gtsam {
 
     /** default constructor, zero rotation */
     Rot2() : c_(1.0), s_(0.0) {}
-    
-    /** copy constructor */
-    Rot2(const Rot2& r) : Rot2(r.c_, r.s_) {}
 
     /// Constructor from angle in radians == exponential map at identity
     Rot2(double theta) : c_(cos(theta)), s_(sin(theta)) {}
@@ -64,7 +59,7 @@ namespace gtsam {
 
     /// Named constructor from angle in degrees
     static Rot2 fromDegrees(double theta) {
-      static const double degree = M_PI / 180;
+      const double degree = M_PI / 180;
       return fromAngle(theta * degree);
     }
 
@@ -79,18 +74,10 @@ namespace gtsam {
      * @return 2D rotation \f$ \in SO(2) \f$
      */
     static Rot2 relativeBearing(const Point2& d, OptionalJacobian<1,2> H =
-        {});
+        boost::none);
 
     /** Named constructor that behaves as atan2, i.e., y,x order (!) and normalizes */
     static Rot2 atan2(double y, double x);
-
-    /**
-     * Random, generates random angle \f$\in\f$ [-pi,pi]
-     * Example:
-     *   std::mt19937 engine(42);
-     *   Unit3 unit = Unit3::Random(engine);
-     */
-    static Rot2 Random(std::mt19937 & rng);
 
     /// @}
     /// @name Testable
@@ -106,8 +93,8 @@ namespace gtsam {
     /// @name Group
     /// @{
 
-    /** Identity */
-    inline static Rot2 Identity() {  return Rot2(); }
+    /** identity */
+    inline static Rot2 identity() {  return Rot2(); }
 
     /** The inverse rotation - negative angle */
     Rot2 inverse() const { return Rot2(c_, -s_);}
@@ -122,10 +109,10 @@ namespace gtsam {
     /// @{
 
     /// Exponential map at identity - create a rotation from canonical coordinates
-    static Rot2 Expmap(const Vector1& v, ChartJacobian H = {});
+    static Rot2 Expmap(const Vector1& v, ChartJacobian H = boost::none);
 
     /// Log map at identity - return the canonical coordinates of this rotation
-    static Vector1 Logmap(const Rot2& r, ChartJacobian H = {});
+    static Vector1 Logmap(const Rot2& r, ChartJacobian H = boost::none);
 
     /** Calculate Adjoint map */
     Matrix1 AdjointMap() const { return I_1x1; }
@@ -142,10 +129,10 @@ namespace gtsam {
 
     // Chart at origin simply uses exponential map and its inverse
     struct ChartAtOrigin {
-      static Rot2 Retract(const Vector1& v, ChartJacobian H = {}) {
+      static Rot2 Retract(const Vector1& v, ChartJacobian H = boost::none) {
         return Expmap(v, H);
       }
-      static Vector1 Local(const Rot2& r, ChartJacobian H = {}) {
+      static Vector1 Local(const Rot2& r, ChartJacobian H = boost::none) {
         return Logmap(r, H);
       }
     };
@@ -159,8 +146,8 @@ namespace gtsam {
     /**
      * rotate point from rotated coordinate frame to world \f$ p^w = R_c^w p^c \f$
      */
-    Point2 rotate(const Point2& p, OptionalJacobian<2, 1> H1 = {},
-        OptionalJacobian<2, 2> H2 = {}) const;
+    Point2 rotate(const Point2& p, OptionalJacobian<2, 1> H1 = boost::none,
+        OptionalJacobian<2, 2> H2 = boost::none) const;
 
     /** syntactic sugar for rotate */
     inline Point2 operator*(const Point2& p) const {
@@ -170,8 +157,8 @@ namespace gtsam {
     /**
      * rotate point from world to rotated frame \f$ p^c = (R_c^w)^T p^w \f$
      */
-    Point2 unrotate(const Point2& p, OptionalJacobian<2, 1> H1 = {},
-        OptionalJacobian<2, 2> H2 = {}) const;
+    Point2 unrotate(const Point2& p, OptionalJacobian<2, 1> H1 = boost::none,
+        OptionalJacobian<2, 2> H2 = boost::none) const;
 
     /// @}
     /// @name Standard Interface
@@ -209,11 +196,7 @@ namespace gtsam {
     /** return 2*2 transpose (inverse) rotation matrix   */
     Matrix2 transpose() const;
 
-    /** Find closest valid rotation matrix, given a 2x2 matrix */
-    static Rot2 ClosestTo(const Matrix2& M);
-
   private:
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
     /** Serialization function */
     friend class boost::serialization::access;
     template<class ARCHIVE>
@@ -221,7 +204,6 @@ namespace gtsam {
       ar & BOOST_SERIALIZATION_NVP(c_);
       ar & BOOST_SERIALIZATION_NVP(s_);
     }
-#endif
 
   };
 

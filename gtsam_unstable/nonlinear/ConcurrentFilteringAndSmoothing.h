@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -20,7 +20,7 @@
 // \callgraph
 #pragma once
 
-#include <gtsam_unstable/dllexport.h>
+#include <gtsam_unstable/base/dllexport.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/linear/GaussianFactorGraph.h>
@@ -38,18 +38,16 @@ void GTSAM_UNSTABLE_EXPORT synchronize(ConcurrentFilter& filter, ConcurrentSmoot
  */
 class GTSAM_UNSTABLE_EXPORT ConcurrentFilter {
 public:
-  typedef std::shared_ptr<ConcurrentFilter> shared_ptr;
+  typedef boost::shared_ptr<ConcurrentFilter> shared_ptr;
 
   /** Default constructor */
-  ConcurrentFilter() = default;
+  ConcurrentFilter() {};
 
   /** Default destructor */
-  virtual ~ConcurrentFilter() = default;
+  virtual ~ConcurrentFilter() {};
 
   /** Implement a standard 'print' function */
-  virtual void print(
-      const std::string& s = "Concurrent Filter:\n",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const = 0;
+  virtual void print(const std::string& s = "Concurrent Filter:\n", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const = 0;
 
   /** Check if two Concurrent Smoothers are equal */
   virtual bool equals(const ConcurrentFilter& rhs, double tol = 1e-9) const = 0;
@@ -58,7 +56,7 @@ public:
    * Perform any required operations before the synchronization process starts.
    * Called by 'synchronize'
    */
-  virtual void presync() {}
+  virtual void presync() {};
 
   /**
    * Populate the provided containers with factors that constitute the filter branch summarization
@@ -91,7 +89,7 @@ public:
    * Perform any required operations after the synchronization process finishes.
    * Called by 'synchronize'
    */
-  virtual void postsync() {}
+  virtual void postsync() {};
 
 }; // ConcurrentFilter
 
@@ -100,18 +98,16 @@ public:
  */
 class GTSAM_UNSTABLE_EXPORT ConcurrentSmoother {
 public:
-  typedef std::shared_ptr<ConcurrentSmoother> shared_ptr;
+  typedef boost::shared_ptr<ConcurrentSmoother> shared_ptr;
 
   /** Default constructor */
-  ConcurrentSmoother() {}
+  ConcurrentSmoother() {};
 
   /** Default destructor */
-  virtual ~ConcurrentSmoother() = default;
+  virtual ~ConcurrentSmoother() {};
 
   /** Implement a standard 'print' function */
-  virtual void print(
-      const std::string& s = "Concurrent Smoother:\n",
-      const KeyFormatter& keyFormatter = DefaultKeyFormatter) const = 0;
+  virtual void print(const std::string& s = "Concurrent Smoother:\n", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const = 0;
 
   /** Check if two Concurrent Smoothers are equal */
   virtual bool equals(const ConcurrentSmoother& rhs, double tol = 1e-9) const = 0;
@@ -120,7 +116,7 @@ public:
    * Perform any required operations before the synchronization process starts.
    * Called by 'synchronize'
    */
-  virtual void presync() {}
+  virtual void presync() {};
 
   /**
    * Populate the provided containers with factors that constitute the smoother branch summarization
@@ -147,7 +143,7 @@ public:
    * Perform any required operations after the synchronization process finishes.
    * Called by 'synchronize'
    */
-  virtual void postsync() {}
+  virtual void postsync() {};
 
 }; // ConcurrentSmoother
 

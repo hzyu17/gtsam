@@ -20,6 +20,7 @@
 
 #include <gtsam/base/Manifold.h>
 #include <gtsam/nonlinear/NonlinearOptimizer.h>
+#include <boost/tuple/tuple.hpp>
 
 namespace gtsam {
 
@@ -50,7 +51,7 @@ public:
 
   typedef NonlinearOptimizer Base;
   typedef NonlinearOptimizerParams Parameters;
-  typedef std::shared_ptr<NonlinearConjugateGradientOptimizer> shared_ptr;
+  typedef boost::shared_ptr<NonlinearConjugateGradientOptimizer> shared_ptr;
 
 protected:
   Parameters params_;
@@ -66,19 +67,10 @@ public:
       const Values& initialValues, const Parameters& params = Parameters());
 
   /// Destructor
-  ~NonlinearConjugateGradientOptimizer() override {
+  virtual ~NonlinearConjugateGradientOptimizer() {
   }
 
-  /** 
-   * Perform a single iteration, returning GaussianFactorGraph corresponding to 
-   * the linearized factor graph.
-   */
   GaussianFactorGraph::shared_ptr iterate() override;
-
-  /** 
-   * Optimize for the maximum-likelihood estimate, returning a the optimized 
-   * variable assignments.
-   */
   const Values& optimize() override;
 };
 
@@ -106,7 +98,7 @@ double lineSearch(const S &system, const V currentValues, const W &gradient) {
             newStep - resphi * (newStep - minStep);
 
     if ((maxStep - minStep)
-        < tau * (std::abs(testStep) + std::abs(newStep))) {
+        < tau * (std::fabs(testStep) + std::fabs(newStep))) {
       return 0.5 * (minStep + maxStep);
     }
 
@@ -144,11 +136,11 @@ double lineSearch(const S &system, const V currentValues, const W &gradient) {
  * The last parameter is a switch between gradient-descent and conjugate gradient
  */
 template<class S, class V>
-std::tuple<V, int> nonlinearConjugateGradient(const S &system,
+boost::tuple<V, int> nonlinearConjugateGradient(const S &system,
     const V &initial, const NonlinearOptimizerParams &params,
     const bool singleIteration, const bool gradientDescent = false) {
 
-  // GTSAM_CONCEPT_MANIFOLD_TYPE(V)
+  // GTSAM_CONCEPT_MANIFOLD_TYPE(V);
 
   size_t iteration = 0;
 
@@ -159,7 +151,7 @@ std::tuple<V, int> nonlinearConjugateGradient(const S &system,
       std::cout << "Exiting, as error = " << currentError << " < "
           << params.errorTol << std::endl;
     }
-    return {initial, iteration};
+    return boost::tie(initial, iteration);
   }
 
   V currentValues = initial;
@@ -199,10 +191,6 @@ std::tuple<V, int> nonlinearConjugateGradient(const S &system,
     currentValues = system.advance(prevValues, alpha, direction);
     currentError = system.error(currentValues);
 
-    // User hook:
-    if (params.iterationHook)
-      params.iterationHook(iteration, prevError, currentError);
-
     // Maybe show output
     if (params.verbosity >= NonlinearOptimizerParams::ERROR)
       std::cout << "iteration: " << iteration << ", currentError: " << currentError << std::endl;
@@ -217,7 +205,7 @@ std::tuple<V, int> nonlinearConjugateGradient(const S &system,
         << "nonlinearConjugateGradient: Terminating because reached maximum iterations"
         << std::endl;
 
-  return {currentValues, iteration};
+  return boost::tie(currentValues, iteration);
 }
 
 } // \ namespace gtsam

@@ -20,6 +20,7 @@
 #include <gtsam/base/cholesky.h>
 #include <gtsam/base/timing.h>
 
+#include <boost/format.hpp>
 #include <cmath>
 
 using namespace std;
@@ -110,7 +111,7 @@ bool choleskyPartial(Matrix& ABC, size_t nFrontal, size_t topleft) {
     return true;
 
   assert(ABC.cols() == ABC.rows());
-  assert(size_t(ABC.rows()) >= topleft);
+  assert(ABC.rows() >= topleft);
   const size_t n = static_cast<size_t>(ABC.rows() - topleft);
   assert(nFrontal <= size_t(n));
 

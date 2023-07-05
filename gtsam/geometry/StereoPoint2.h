@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -20,15 +20,13 @@
 
 #include <gtsam/geometry/Point2.h>
 #include <gtsam/base/VectorSpace.h>
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
 #include <boost/serialization/nvp.hpp>
-#endif
 
 namespace gtsam {
 
 /**
  * A 2D stereo point, v will be same for rectified images
- * @ingroup geometry
+ * @addtogroup geometry
  * \nosubgrouping
  */
 class GTSAM_EXPORT StereoPoint2 {
@@ -46,9 +44,7 @@ public:
       uL_(0), uR_(0), v_(0) {
   }
 
-  /** uL and uR represent the x-axis value of left and right frame coordinates respectively.
-      v represents the y coordinate value. The y-axis value should be the same under the
-      stereo constraint. */
+  /** constructor */
   StereoPoint2(double uL, double uR, double v) :
       uL_(uL), uR_(uR), v_(v) {
   }
@@ -66,8 +62,8 @@ public:
 
   /** equals */
   bool equals(const StereoPoint2& q, double tol = 1e-9) const {
-    return (std::abs(uL_ - q.uL_) < tol && std::abs(uR_ - q.uR_) < tol
-        && std::abs(v_ - q.v_) < tol);
+    return (fabs(uL_ - q.uL_) < tol && fabs(uR_ - q.uR_) < tol
+        && fabs(v_ - q.v_) < tol);
   }
 
   /// @}
@@ -75,7 +71,7 @@ public:
   /// @{
 
   /// identity
-  inline static StereoPoint2 Identity() {
+  inline static StereoPoint2 identity() {
     return StereoPoint2();
   }
 
@@ -150,7 +146,6 @@ private:
   /// @name Advanced Interface
   /// @{
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
@@ -159,7 +154,6 @@ private:
     ar & BOOST_SERIALIZATION_NVP(uR_);
     ar & BOOST_SERIALIZATION_NVP(v_);
   }
-#endif
 
   /// @}
 

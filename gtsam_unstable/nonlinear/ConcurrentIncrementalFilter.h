@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -31,7 +31,7 @@ class GTSAM_UNSTABLE_EXPORT ConcurrentIncrementalFilter : public virtual Concurr
 
 public:
 
-  typedef std::shared_ptr<ConcurrentIncrementalFilter> shared_ptr;
+  typedef boost::shared_ptr<ConcurrentIncrementalFilter> shared_ptr;
   typedef ConcurrentFilter Base; ///< typedef for base class
 
   /** Meta information returned about the update */
@@ -51,7 +51,7 @@ public:
     double error; ///< The final factor graph error
 
     /// Constructor
-    Result() : iterations(0), nonlinearVariables(0), linearVariables(0), error(0) {}
+    Result() : iterations(0), nonlinearVariables(0), linearVariables(0), error(0) {};
 
     /// Getter methods
     size_t getIterations() const { return iterations; }
@@ -61,16 +61,16 @@ public:
   };
 
   /** Default constructor */
-  ConcurrentIncrementalFilter(const ISAM2Params& parameters = ISAM2Params()) : isam2_(parameters) {}
+  ConcurrentIncrementalFilter(const ISAM2Params& parameters = ISAM2Params()) : isam2_(parameters) {};
 
   /** Default destructor */
-  ~ConcurrentIncrementalFilter() override {}
+  virtual ~ConcurrentIncrementalFilter() {};
 
   /** Implement a GTSAM standard 'print' function */
-  void print(const std::string& s = "Concurrent Incremental Filter:\n", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override;
+  virtual void print(const std::string& s = "Concurrent Incremental Filter:\n", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
   /** Check if two Concurrent Filters are equal */
-  bool equals(const ConcurrentFilter& rhs, double tol = 1e-9) const override;
+  virtual bool equals(const ConcurrentFilter& rhs, double tol = 1e-9) const;
 
   /** Access the current set of factors */
   const NonlinearFactorGraph& getFactors() const {
@@ -123,14 +123,14 @@ public:
    * @param removeFactorIndices An optional set of indices corresponding to the factors you want to remove from the graph
    */
   Result update(const NonlinearFactorGraph& newFactors = NonlinearFactorGraph(), const Values& newTheta = Values(),
-      const std::optional<FastList<Key> >& keysToMove = {},
-      const std::optional< FactorIndices >& removeFactorIndices = {});
+      const boost::optional<FastList<Key> >& keysToMove = boost::none,
+      const boost::optional< FactorIndices >& removeFactorIndices = boost::none);
 
   /**
    * Perform any required operations before the synchronization process starts.
    * Called by 'synchronize'
    */
-  void presync() override;
+  virtual void presync();
 
   /**
    * Populate the provided containers with factors that constitute the filter branch summarization
@@ -139,7 +139,7 @@ public:
    * @param summarizedFactors The summarized factors for the filter branch
    * @param rootValues The linearization points of the root clique variables
    */
-  void getSummarizedFactors(NonlinearFactorGraph& filterSummarization, Values& filterSummarizationValues) override;
+  virtual void getSummarizedFactors(NonlinearFactorGraph& filterSummarization, Values& filterSummarizationValues);
 
   /**
    * Populate the provided containers with factors being sent to the smoother from the filter. These
@@ -149,20 +149,20 @@ public:
    * @param smootherFactors The new factors to be added to the smoother
    * @param smootherValues The linearization points of any new variables
    */
-  void getSmootherFactors(NonlinearFactorGraph& smootherFactors, Values& smootherValues) override;
+  virtual void getSmootherFactors(NonlinearFactorGraph& smootherFactors, Values& smootherValues);
 
   /**
    * Apply the updated version of the smoother branch summarized factors.
    *
    * @param summarizedFactors An updated version of the smoother branch summarized factors
    */
-  void synchronize(const NonlinearFactorGraph& smootherSummarization, const Values& smootherSummarizationValues) override;
+  virtual void synchronize(const NonlinearFactorGraph& smootherSummarization, const Values& smootherSummarizationValues);
 
   /**
    * Perform any required operations after the synchronization process finishes.
    * Called by 'synchronize'
    */
-  void postsync() override;
+  virtual void postsync();
 
 protected:
 

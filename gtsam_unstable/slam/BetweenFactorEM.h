@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -28,7 +28,7 @@ namespace gtsam {
 /**
  * A class for a measurement predicted by "between(config[key1],config[key2])"
  * @tparam VALUE the Value type
- * @ingroup slam
+ * @addtogroup SLAM
  */
 template<class VALUE>
 class BetweenFactorEM: public NonlinearFactor {
@@ -40,10 +40,10 @@ public:
 private:
 
   typedef BetweenFactorEM<VALUE> This;
-  typedef NonlinearFactor Base;
+  typedef gtsam::NonlinearFactor Base;
 
-  Key key1_;
-  Key key2_;
+  gtsam::Key key1_;
+  gtsam::Key key2_;
 
   VALUE measured_; /** The measurement */
 
@@ -56,13 +56,12 @@ private:
   bool flag_bump_up_near_zero_probs_;
 
   /** concept check by type */
-  GTSAM_CONCEPT_LIE_TYPE(T)
-  GTSAM_CONCEPT_TESTABLE_TYPE(T)
+  GTSAM_CONCEPT_LIE_TYPE(T)GTSAM_CONCEPT_TESTABLE_TYPE(T)
 
 public:
 
   // shorthand for a smart pointer to a factor
-  typedef typename std::shared_ptr<BetweenFactorEM> shared_ptr;
+  typedef typename boost::shared_ptr<BetweenFactorEM> shared_ptr;
 
   /** default constructor - only use for serialization */
   BetweenFactorEM() {
@@ -73,20 +72,20 @@ public:
       const SharedGaussian& model_inlier, const SharedGaussian& model_outlier,
       const double prior_inlier, const double prior_outlier,
       const bool flag_bump_up_near_zero_probs = false) :
-      Base(KeyVector{key1, key2}), key1_(key1), key2_(key2), measured_(
+      Base(cref_list_of<2>(key1)(key2)), key1_(key1), key2_(key2), measured_(
           measured), model_inlier_(model_inlier), model_outlier_(model_outlier), prior_inlier_(
           prior_inlier), prior_outlier_(prior_outlier), flag_bump_up_near_zero_probs_(
           flag_bump_up_near_zero_probs) {
   }
 
-  ~BetweenFactorEM() override {
+  virtual ~BetweenFactorEM() {
   }
 
   /** implement functions needed for Testable */
 
   /** print */
-  void print(const std::string& s, const KeyFormatter& keyFormatter =
-      DefaultKeyFormatter) const override {
+  virtual void print(const std::string& s, const KeyFormatter& keyFormatter =
+      DefaultKeyFormatter) const {
     std::cout << s << "BetweenFactorEM(" << keyFormatter(key1_) << ","
         << keyFormatter(key2_) << ")\n";
     measured_.print("  measured: ");
@@ -98,7 +97,7 @@ public:
   }
 
   /** equals */
-  bool equals(const NonlinearFactor& f, double tol = 1e-9) const override {
+  virtual bool equals(const NonlinearFactor& f, double tol = 1e-9) const {
     const This *t = dynamic_cast<const This*>(&f);
 
     if (t && Base::equals(f))
@@ -115,37 +114,38 @@ public:
   /** implement functions needed to derive from Factor */
 
   /* ************************************************************************* */
-  double error(const Values &x) const override {
+  virtual double error(const gtsam::Values& x) const {
     return whitenedError(x).squaredNorm();
   }
 
   /* ************************************************************************* */
   /**
-   * Linearize a non-linearFactorN to get a GaussianFactor,
+   * Linearize a non-linearFactorN to get a gtsam::GaussianFactor,
    * \f$ Ax-b \approx h(x+\delta x)-z = h(x) + A \delta x - z \f$
    * Hence \f$ b = z - h(x) = - \mathtt{error\_vector}(x) \f$
    */
   /* This version of linearize recalculates the noise model each time */
-  std::shared_ptr<GaussianFactor> linearize(const Values &x) const override {
+  virtual boost::shared_ptr<gtsam::GaussianFactor> linearize(
+      const gtsam::Values& x) const {
     // Only linearize if the factor is active
     if (!this->active(x))
-      return std::shared_ptr<JacobianFactor>();
+      return boost::shared_ptr<gtsam::JacobianFactor>();
 
     //std::cout<<"About to linearize"<<std::endl;
-    Matrix A1, A2;
-    std::vector<Matrix> A(this->size());
-    Vector b = -whitenedError(x, A);
+    gtsam::Matrix A1, A2;
+    std::vector<gtsam::Matrix> A(this->size());
+    gtsam::Vector b = -whitenedError(x, A);
     A1 = A[0];
     A2 = A[1];
 
-    return GaussianFactor::shared_ptr(
-        new JacobianFactor(key1_, A1, key2_, A2, b,
-            noiseModel::Unit::Create(b.size())));
+    return gtsam::GaussianFactor::shared_ptr(
+        new gtsam::JacobianFactor(key1_, A1, key2_, A2, b,
+            gtsam::noiseModel::Unit::Create(b.size())));
   }
 
   /* ************************************************************************* */
-  Vector whitenedError(const Values& x,
-      OptionalMatrixVecType H = nullptr) const {
+  gtsam::Vector whitenedError(const gtsam::Values& x,
+      boost::optional<std::vector<gtsam::Matrix>&> H = boost::none) const {
 
     bool debug = true;
 
@@ -181,11 +181,11 @@ public:
 
       Matrix H1_inlier = sqrt(p_inlier) * model_inlier_->Whiten(H1);
       Matrix H1_outlier = sqrt(p_outlier) * model_outlier_->Whiten(H1);
-      Matrix H1_aug = stack(2, &H1_inlier, &H1_outlier);
+      Matrix H1_aug = gtsam::stack(2, &H1_inlier, &H1_outlier);
 
       Matrix H2_inlier = sqrt(p_inlier) * model_inlier_->Whiten(H2);
       Matrix H2_outlier = sqrt(p_outlier) * model_outlier_->Whiten(H2);
-      Matrix H2_aug = stack(2, &H2_inlier, &H2_outlier);
+      Matrix H2_aug = gtsam::stack(2, &H2_inlier, &H2_outlier);
 
       (*H)[0].resize(H1_aug.rows(), H1_aug.cols());
       (*H)[1].resize(H2_aug.rows(), H2_aug.cols());
@@ -228,14 +228,8 @@ public:
     return err_wh_eq;
   }
 
-  // A function overload that takes a vector of matrices and passes it to the
-  // function above which uses a pointer to a vector instead.
-  Vector whitenedError(const Values& x, std::vector<Matrix>& H) const {
-	  return whitenedError(x, &H);
-  }
-
   /* ************************************************************************* */
-  Vector calcIndicatorProb(const Values& x) const {
+  gtsam::Vector calcIndicatorProb(const gtsam::Values& x) const {
 
     bool debug = false;
 
@@ -291,7 +285,7 @@ public:
   }
 
   /* ************************************************************************* */
-  Vector unwhitenedError(const Values& x) const {
+  gtsam::Vector unwhitenedError(const gtsam::Values& x) const {
 
     const T& p1 = x.at<T>(key1_);
     const T& p2 = x.at<T>(key2_);
@@ -334,8 +328,8 @@ public:
   }
 
   /* ************************************************************************* */
-  void updateNoiseModels(const Values& values,
-      const NonlinearFactorGraph& graph) {
+  void updateNoiseModels(const gtsam::Values& values,
+      const gtsam::NonlinearFactorGraph& graph) {
     /* Update model_inlier_ and model_outlier_ to account for uncertainty in robot trajectories
      * (note these are given in the E step, where indicator probabilities are calculated).
      *
@@ -346,7 +340,7 @@ public:
      */
 
     // get joint covariance of the involved states
-    KeyVector Keys;
+    std::vector<gtsam::Key> Keys;
     Keys.push_back(key1_);
     Keys.push_back(key2_);
     Marginals marginals(graph, values, Marginals::QR);
@@ -359,7 +353,7 @@ public:
   }
 
   /* ************************************************************************* */
-  void updateNoiseModels_givenCovs(const Values& values,
+  void updateNoiseModels_givenCovs(const gtsam::Values& values,
       const Matrix& cov1, const Matrix& cov2, const Matrix& cov12) {
     /* Update model_inlier_ and model_outlier_ to account for uncertainty in robot trajectories
      * (note these are given in the E step, where indicator probabilities are calculated).
@@ -391,12 +385,12 @@ public:
     // update inlier and outlier noise models
     Matrix covRinlier =
         (model_inlier_->R().transpose() * model_inlier_->R()).inverse();
-    model_inlier_ = noiseModel::Gaussian::Covariance(
+    model_inlier_ = gtsam::noiseModel::Gaussian::Covariance(
         covRinlier + cov_state);
 
     Matrix covRoutlier =
         (model_outlier_->R().transpose() * model_outlier_->R()).inverse();
-    model_outlier_ = noiseModel::Gaussian::Covariance(
+    model_outlier_ = gtsam::noiseModel::Gaussian::Covariance(
         covRoutlier + cov_state);
 
     //       model_inlier_->print("after:");
@@ -409,13 +403,17 @@ public:
     return measured_;
   }
 
-  size_t dim() const override {
+  /** number of variables attached to this factor */
+  std::size_t size() const {
+    return 2;
+  }
+
+  virtual size_t dim() const {
     return model_inlier_->R().rows() + model_inlier_->R().cols();
   }
 
 private:
 
-#ifdef GTSAM_ENABLE_BOOST_SERIALIZATION
   /** Serialization function */
   friend class boost::serialization::access;
   template<class ARCHIVE>
@@ -425,12 +423,7 @@ private:
             boost::serialization::base_object<Base>(*this));
     ar & BOOST_SERIALIZATION_NVP(measured_);
   }
-#endif
 };
 // \class BetweenFactorEM
 
-/// traits
-template<class VALUE>
-struct traits<BetweenFactorEM<VALUE> > : public Testable<BetweenFactorEM<VALUE> > {};
-
-}  // namespace gtsam
+}/// namespace gtsam

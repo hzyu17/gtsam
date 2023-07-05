@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include "GeographicLib/UTMUPS.hpp"
@@ -175,11 +175,11 @@ void UTMUPS::DecodeZone(System::String^ zonestr,
 }
 
 //*****************************************************************************
-System::String^ UTMUPS::EncodeZone(int zone, bool northp, bool abbrev)
+System::String^ UTMUPS::EncodeZone(int zone, bool northp)
 {
     try
     {
-        return StringConvert::UnmanagedToManaged( GeographicLib::UTMUPS::EncodeZone( zone, northp, abbrev ) );
+        return StringConvert::UnmanagedToManaged( GeographicLib::UTMUPS::EncodeZone( zone, northp ) );
     }
     catch ( const std::exception& err )
     {

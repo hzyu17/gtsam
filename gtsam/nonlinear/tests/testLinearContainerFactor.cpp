@@ -6,16 +6,17 @@
  */
 
 #include <CppUnitLite/TestHarness.h>
-#include <gtsam/base/TestableAssertions.h>
-#include <gtsam/geometry/Point3.h>
-#include <gtsam/geometry/Pose2.h>
-#include <gtsam/inference/Symbol.h>
-#include <gtsam/linear/HessianFactor.h>
-#include <gtsam/linear/VectorValues.h>
-#include <gtsam/nonlinear/LinearContainerFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/nonlinear/LinearContainerFactor.h>
+#include <gtsam/linear/VectorValues.h>
+#include <gtsam/linear/HessianFactor.h>
+#include <gtsam/geometry/Pose2.h>
+#include <gtsam/geometry/Point3.h>
+#include <gtsam/base/TestableAssertions.h>
+#include <boost/assign/std/vector.hpp>
 
 using namespace std;
+using namespace boost::assign;
 using namespace gtsam;
 
 const gtsam::noiseModel::Diagonal::shared_ptr diag_model2 = noiseModel::Diagonal::Sigmas(Vector2(1.0, 1.0));
@@ -27,7 +28,7 @@ Point2 landmark1(5.0, 1.5), landmark2(7.0, 1.5);
 Pose2 poseA1(0.0, 0.0, 0.0), poseA2(2.0, 0.0, 0.0);
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, generic_jacobian_factor) {
+TEST( testLinearContainerFactor, generic_jacobian_factor ) {
 
   Matrix A1 = (Matrix(2, 2) <<
       2.74222, -0.0067457,
@@ -46,7 +47,8 @@ TEST(TestLinearContainerFactor, generic_jacobian_factor) {
   EXPECT(!actFactor.isHessian());
 
   // check keys
-  EXPECT(assert_container_equality({l1, l2}, actFactor.keys()));
+  FastVector<Key> expKeys; expKeys += l1, l2;
+  EXPECT(assert_container_equality(expKeys, actFactor.keys()));
 
   Values values;
   values.insert(l1, landmark1);
@@ -60,7 +62,7 @@ TEST(TestLinearContainerFactor, generic_jacobian_factor) {
 }
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, jacobian_factor_withlinpoints) {
+TEST( testLinearContainerFactor, jacobian_factor_withlinpoints ) {
 
   Matrix A1 = (Matrix(2, 2) <<
       2.74222, -0.0067457,
@@ -114,7 +116,7 @@ TEST(TestLinearContainerFactor, jacobian_factor_withlinpoints) {
 }
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, generic_hessian_factor) {
+TEST( testLinearContainerFactor, generic_hessian_factor ) {
   Matrix G11 = (Matrix(1, 1) << 1.0).finished();
   Matrix G12 = (Matrix(1, 2) << 2.0, 4.0).finished();
   Matrix G13 = (Matrix(1, 3) << 3.0, 6.0, 9.0).finished();
@@ -152,7 +154,7 @@ TEST(TestLinearContainerFactor, generic_hessian_factor) {
 }
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, hessian_factor_withlinpoints) {
+TEST( testLinearContainerFactor, hessian_factor_withlinpoints ) {
   // 2 variable example, one pose, one landmark (planar)
   // Initial ordering: x1, l1
 
@@ -225,7 +227,7 @@ TEST(TestLinearContainerFactor, hessian_factor_withlinpoints) {
 }
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, Creation) {
+TEST( testLinearContainerFactor, creation ) {
   // Create a set of local keys (No robot label)
   Key  l1 = 11, l3 = 13, l5 = 15;
 
@@ -244,14 +246,16 @@ TEST(TestLinearContainerFactor, Creation) {
   LinearContainerFactor actual(linear_factor, full_values);
 
   // Verify the keys
-  EXPECT(assert_container_equality({l3, l5}, actual.keys()));
+  FastVector<Key> expKeys;
+  expKeys += l3, l5;
+  EXPECT(assert_container_equality(expKeys, actual.keys()));
 
   // Verify subset of linearization points
   EXPECT(assert_equal(exp_values, actual.linearizationPoint(), tol));
 }
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, jacobian_relinearize)
+TEST( testLinearContainerFactor, jacobian_relinearize )
 {
   // Create a Between Factor from a Point3. This is actually a linear factor.
   gtsam::Key key1(1);
@@ -285,7 +289,7 @@ TEST(TestLinearContainerFactor, jacobian_relinearize)
 }
 
 /* ************************************************************************* */
-TEST(TestLinearContainerFactor, hessian_relinearize)
+TEST( testLinearContainerFactor, hessian_relinearize )
 {
   // Create a Between Factor from a Point3. This is actually a linear factor.
   gtsam::Key key1(1);
@@ -316,76 +320,6 @@ TEST(TestLinearContainerFactor, hessian_relinearize)
   gtsam::GaussianFactor::shared_ptr expected_factor = gtsam::HessianFactor::shared_ptr(new gtsam::HessianFactor(*betweenFactor.linearize(linpoint2)));
   gtsam::GaussianFactor::shared_ptr actual_factor   = hessianContainer.linearize(linpoint2);
   CHECK(gtsam::assert_equal(*expected_factor, *actual_factor));
-}
-
-/* ************************************************************************* */
-TEST(TestLinearContainerFactor, Rekey) {
-  // Make an example factor
-  auto nonlinear_factor =
-      std::make_shared<gtsam::BetweenFactor<gtsam::Point3>>(
-          gtsam::Symbol('x', 0), gtsam::Symbol('l', 0), gtsam::Point3(0, 0, 0),
-          gtsam::noiseModel::Isotropic::Sigma(3, 1));
-
-  // Linearize and create an LCF
-  gtsam::Values linearization_pt;
-  linearization_pt.insert(gtsam::Symbol('x', 0), gtsam::Point3(0, 0, 0));
-  linearization_pt.insert(gtsam::Symbol('l', 0), gtsam::Point3(0, 0, 0));
-
-  LinearContainerFactor lcf_factor(
-      nonlinear_factor->linearize(linearization_pt), linearization_pt);
-
-  // Define a key mapping
-  std::map<gtsam::Key, gtsam::Key> key_map;
-  key_map[gtsam::Symbol('x', 0)] = gtsam::Symbol('x', 4);
-  key_map[gtsam::Symbol('l', 0)] = gtsam::Symbol('l', 4);
-
-  // Rekey (Calls NonlinearFactor::rekey() which should probably be overriden)
-  // This of type boost_ptr<NonlinearFactor>
-  auto lcf_factor_rekeyed = lcf_factor.rekey(key_map);
-
-  // Cast back to LCF ptr
-  LinearContainerFactor::shared_ptr lcf_factor_rekey_ptr =
-      std::static_pointer_cast<LinearContainerFactor>(lcf_factor_rekeyed);
-  CHECK(lcf_factor_rekey_ptr);
-
-  // For extra fun lets try linearizing this LCF
-  gtsam::Values linearization_pt_rekeyed;
-  for (auto key : linearization_pt.keys()) {
-    linearization_pt_rekeyed.insert(key_map.at(key), linearization_pt.at(key));
-  }
-
-  // Check independent values since we don't want to unnecessarily sort
-  // The keys are just in the reverse order wrt the other container
-  CHECK(assert_equal(linearization_pt_rekeyed.keys()[1], lcf_factor_rekey_ptr->keys()[0]));
-  CHECK(assert_equal(linearization_pt_rekeyed.keys()[0], lcf_factor_rekey_ptr->keys()[1]));
-}
-
-/* ************************************************************************* */
-TEST(TestLinearContainerFactor, Rekey2) {
-  // Make an example factor
-  auto nonlinear_factor =
-      std::make_shared<gtsam::BetweenFactor<gtsam::Point3>>(
-          gtsam::Symbol('x', 0), gtsam::Symbol('l', 0), gtsam::Point3(0, 0, 0),
-          gtsam::noiseModel::Isotropic::Sigma(3, 1));
-
-  // Linearize and create an LCF
-  gtsam::Values linearization_pt;
-  linearization_pt.insert(gtsam::Symbol('x', 0), gtsam::Point3(0, 0, 0));
-  linearization_pt.insert(gtsam::Symbol('l', 0), gtsam::Point3(0, 0, 0));
-
-  LinearContainerFactor lcf_factor(
-      nonlinear_factor->linearize(linearization_pt), linearization_pt);
-
-  // Define a key mapping with only a single key remapped.
-  // This should throw an exception if there is a bug.
-  std::map<gtsam::Key, gtsam::Key> key_map;
-  key_map[gtsam::Symbol('x', 0)] = gtsam::Symbol('x', 4);
-
-  // Cast back to LCF ptr
-  LinearContainerFactor::shared_ptr lcf_factor_rekey_ptr =
-      std::static_pointer_cast<LinearContainerFactor>(
-          lcf_factor.rekey(key_map));
-  CHECK(lcf_factor_rekey_ptr);
 }
 
 /* ************************************************************************* */

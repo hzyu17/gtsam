@@ -16,6 +16,7 @@
  *  @date Nov 2009
  */
 
+#include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam_unstable/slam/MultiProjectionFactor.h>
@@ -73,8 +74,10 @@ TEST( MultiProjectionFactor, create ){
   views.insert(x2);
   views.insert(x3);
 
-  graph.emplace_shared<MultiProjectionFactor<Pose3, Point3>>(
-      n_measPixel, noiseProjection, views, l1, K);
+  MultiProjectionFactor<Pose3, Point3> mpFactor(n_measPixel, noiseProjection, views, l1, K);
+  graph += mpFactor;
+
+
 }
 
 

@@ -2,9 +2,9 @@
  * \file TransverseMercatorExact.hpp
  * \brief Header for GeographicLib::TransverseMercatorExact class
  *
- * Copyright (c) Charles Karney (2008-2016) <charles@karney.com> and licensed
+ * Copyright (c) Charles Karney (2008-2011) <charles@karney.com> and licensed
  * under the MIT/X11 License.  For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 
 #if !defined(GEOGRAPHICLIB_TRANSVERSEMERCATOREXACT_HPP)
@@ -20,7 +20,7 @@ namespace GeographicLib {
    *
    * Implementation of the Transverse Mercator Projection given in
    *  - L. P. Lee,
-   *    <a href="https://doi.org/10.3138/X687-1574-4325-WM62"> Conformal
+   *    <a href="http://dx.doi.org/10.3138/X687-1574-4325-WM62"> Conformal
    *    Projections Based On Jacobian Elliptic Functions</a>, Part V of
    *    Conformal Projections Based on Elliptic Functions,
    *    (B. V. Gutsell, Toronto, 1976), 128pp.,
@@ -28,11 +28,11 @@ namespace GeographicLib {
    *    (also appeared as:
    *    Monograph 16, Suppl. No. 1 to Canadian Cartographer, Vol 13).
    *  - C. F. F. Karney,
-   *    <a href="https://doi.org/10.1007/s00190-011-0445-3">
+   *    <a href="http://dx.doi.org/10.1007/s00190-011-0445-3">
    *    Transverse Mercator with an accuracy of a few nanometers,</a>
    *    J. Geodesy 85(8), 475--485 (Aug. 2011);
    *    preprint
-   *    <a href="https://arxiv.org/abs/1002.1417">arXiv:1002.1417</a>.
+   *    <a href="http://arxiv.org/abs/1002.1417">arXiv:1002.1417</a>.
    *
    * Lee gives the correct results for forward and reverse transformations
    * subject to the branch cut rules (see the description of the \e extendp
@@ -41,7 +41,7 @@ namespace GeographicLib {
    * The error in the convergence is 2 &times; 10<sup>&minus;15</sup>&quot;,
    * the relative error in the scale is 7 &times; 10<sup>&minus;12</sup>%%.
    * See Sec. 3 of
-   * <a href="https://arxiv.org/abs/1002.1417">arXiv:1002.1417</a> for details.
+   * <a href="http://arxiv.org/abs/1002.1417">arXiv:1002.1417</a> for details.
    * The method is "exact" in the sense that the errors are close to the
    * round-off limit and that no changes are needed in the algorithms for them
    * to be used with reals of a higher precision.  Thus the errors using long
@@ -59,13 +59,9 @@ namespace GeographicLib {
    * taken to be the equator.  See the documentation on TransverseMercator for
    * how to include a false easting, false northing, or a latitude of origin.
    *
-   * See <a href="https://geographiclib.sourceforge.io/tm-grid.kmz"
+   * See <a href="http://geographiclib.sourceforge.net/tm-grid.kmz"
    * type="application/vnd.google-earth.kmz"> tm-grid.kmz</a>, for an
    * illustration of the transverse Mercator grid in Google Earth.
-   *
-   * This class also returns the meridian convergence \e gamma and scale \e k.
-   * The meridian convergence is the bearing of grid north (the \e y axis)
-   * measured clockwise from true north.
    *
    * See TransverseMercatorExact.cpp for more information on the
    * implementation.
@@ -83,38 +79,51 @@ namespace GeographicLib {
   class GEOGRAPHICLIB_EXPORT TransverseMercatorExact {
   private:
     typedef Math::real real;
+    static const real tol_;
+    static const real tol1_;
+    static const real tol2_;
+    static const real taytol_;
+    static const real overflow_;
     static const int numit_ = 10;
-    real tol_, tol2_, taytol_;
     real _a, _f, _k0, _mu, _mv, _e;
     bool _extendp;
     EllipticFunction _Eu, _Ev;
+    // tan(x) for x in [-pi/2, pi/2] ensuring that the sign is right
+    static inline real tanx(real x) throw() {
+      real t = std::tan(x);
+      // Write the tests this way to ensure that tanx(NaN()) is NaN()
+      return x >= 0 ? (!(t < 0) ? t : overflow_) : (!(t >= 0) ? t : -overflow_);
+    }
+
+    real taup(real tau) const throw();
+    real taupinv(real taup) const throw();
 
     void zeta(real u, real snu, real cnu, real dnu,
               real v, real snv, real cnv, real dnv,
-              real& taup, real& lam) const;
+              real& taup, real& lam) const throw();
 
     void dwdzeta(real u, real snu, real cnu, real dnu,
                  real v, real snv, real cnv, real dnv,
-                 real& du, real& dv) const;
+                 real& du, real& dv) const throw();
 
-    bool zetainv0(real psi, real lam, real& u, real& v) const;
-    void zetainv(real taup, real lam, real& u, real& v) const;
+    bool zetainv0(real psi, real lam, real& u, real& v) const throw();
+    void zetainv(real taup, real lam, real& u, real& v) const throw();
 
     void sigma(real u, real snu, real cnu, real dnu,
                real v, real snv, real cnv, real dnv,
-               real& xi, real& eta) const;
+               real& xi, real& eta) const throw();
 
     void dwdsigma(real u, real snu, real cnu, real dnu,
                   real v, real snv, real cnv, real dnv,
-                  real& du, real& dv) const;
+                  real& du, real& dv) const throw();
 
-    bool sigmainv0(real xi, real eta, real& u, real& v) const;
-    void sigmainv(real xi, real eta, real& u, real& v) const;
+    bool sigmainv0(real xi, real eta, real& u, real& v) const throw();
+    void sigmainv(real xi, real eta, real& u, real& v) const throw();
 
     void Scale(real tau, real lam,
                real snu, real cnu, real dnu,
                real snv, real cnv, real dnv,
-               real& gamma, real& k) const;
+               real& gamma, real& k) const throw();
 
   public:
 
@@ -122,7 +131,8 @@ namespace GeographicLib {
      * Constructor for a ellipsoid with
      *
      * @param[in] a equatorial radius (meters).
-     * @param[in] f flattening of ellipsoid.
+     * @param[in] f flattening of ellipsoid.  If \e f > 1, set flattening
+     *   to 1/\e f.
      * @param[in] k0 central scale factor.
      * @param[in] extendp use extended domain.
      * @exception GeographicErr if \e a, \e f, or \e k0 is not positive.
@@ -157,7 +167,7 @@ namespace GeographicLib {
      *     a) in (&minus;&infin;, 0]
      * .
      * See Sec. 5 of
-     * <a href="https://arxiv.org/abs/1002.1417">arXiv:1002.1417</a> for a full
+     * <a href="http://arxiv.org/abs/1002.1417">arXiv:1002.1417</a> for a full
      * discussion of the treatment of the branch cut.
      *
      * The method will work for all ellipsoids used in terrestrial geodesy.
@@ -181,10 +191,11 @@ namespace GeographicLib {
      * @param[out] k scale of projection at point.
      *
      * No false easting or northing is added. \e lat should be in the range
-     * [&minus;90&deg;, 90&deg;].
+     * [&minus;90&deg;, 90&deg;]; \e lon and \e lon0 should be in the
+     * range [&minus;540&deg;, 540&deg;).
      **********************************************************************/
     void Forward(real lon0, real lat, real lon,
-                 real& x, real& y, real& gamma, real& k) const;
+                 real& x, real& y, real& gamma, real& k) const throw();
 
     /**
      * Reverse projection, from transverse Mercator to geographic.
@@ -197,18 +208,19 @@ namespace GeographicLib {
      * @param[out] gamma meridian convergence at point (degrees).
      * @param[out] k scale of projection at point.
      *
-     * No false easting or northing is added.  The value of \e lon returned is
-     * in the range [&minus;180&deg;, 180&deg;].
+     * No false easting or northing is added.  \e lon0 should be in the range
+     * [&minus;540&deg;, 540&deg;).  The value of \e lon returned is in
+     * the range [&minus;180&deg;, 180&deg;).
      **********************************************************************/
     void Reverse(real lon0, real x, real y,
-                 real& lat, real& lon, real& gamma, real& k) const;
+                 real& lat, real& lon, real& gamma, real& k) const throw();
 
     /**
      * TransverseMercatorExact::Forward without returning the convergence and
      * scale.
      **********************************************************************/
     void Forward(real lon0, real lat, real lon,
-                 real& x, real& y) const {
+                 real& x, real& y) const throw() {
       real gamma, k;
       Forward(lon0, lat, lon, x, y, gamma, k);
     }
@@ -218,7 +230,7 @@ namespace GeographicLib {
      * scale.
      **********************************************************************/
     void Reverse(real lon0, real x, real y,
-                 real& lat, real& lon) const {
+                 real& lat, real& lon) const throw() {
       real gamma, k;
       Reverse(lon0, x, y, lat, lon, gamma, k);
     }
@@ -230,19 +242,27 @@ namespace GeographicLib {
      * @return \e a the equatorial radius of the ellipsoid (meters).  This is
      *   the value used in the constructor.
      **********************************************************************/
-    Math::real MajorRadius() const { return _a; }
+    Math::real MajorRadius() const throw() { return _a; }
 
     /**
      * @return \e f the flattening of the ellipsoid.  This is the value used in
      *   the constructor.
      **********************************************************************/
-    Math::real Flattening() const { return _f; }
+    Math::real Flattening() const throw() { return _f; }
+
+    /// \cond SKIP
+    /**
+     * <b>DEPRECATED</b>
+     * @return \e r the inverse flattening of the ellipsoid.
+     **********************************************************************/
+    Math::real InverseFlattening() const throw() { return 1/_f; }
+    /// \endcond
 
     /**
      * @return \e k0 central scale for the projection.  This is the value of \e
      *   k0 used in the constructor and is the scale on the central meridian.
      **********************************************************************/
-    Math::real CentralScale() const { return _k0; }
+    Math::real CentralScale() const throw() { return _k0; }
     ///@}
 
     /**
@@ -250,7 +270,7 @@ namespace GeographicLib {
      * ellipsoid and the UTM scale factor.  However, unlike UTM, no false
      * easting or northing is added.
      **********************************************************************/
-    static const TransverseMercatorExact& UTM();
+    static const TransverseMercatorExact UTM;
   };
 
 } // namespace GeographicLib

@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 using System;
 using System.Collections.Generic;
@@ -44,7 +44,6 @@ namespace Projections
             m_magneticPage.Controls.Add(new MagneticPanel());
             m_polyPage.Controls.Add(new PolyPanel());
             m_accumPage.Controls.Add(new AccumPanel());
-            m_rhumbTabPage.Controls.Add(new RhumbPanel());
         }
     }
 }

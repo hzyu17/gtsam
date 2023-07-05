@@ -6,7 +6,7 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include "GeographicLib/GeoCoords.hpp"
@@ -42,11 +42,11 @@ GeoCoords::GeoCoords()
 }
 
 //*****************************************************************************
-GeoCoords::GeoCoords(System::String^ s, bool centerp, bool longfirst )
+GeoCoords::GeoCoords(System::String^ s, bool centerp, bool swaplatlong )
 {
     try
     {
-        m_pGeoCoords = new GeographicLib::GeoCoords(StringConvert::ManagedToUnmanaged(s), centerp, longfirst);
+        m_pGeoCoords = new GeographicLib::GeoCoords(StringConvert::ManagedToUnmanaged(s), centerp, swaplatlong);
     }
     catch ( std::bad_alloc )
     {
@@ -93,11 +93,11 @@ GeoCoords::GeoCoords(int zone, bool northp, double easting, double northing)
 }
 
 //*****************************************************************************
-void GeoCoords::Reset( System::String^ s, bool centerp, bool longfirst )
+void GeoCoords::Reset( System::String^ s, bool centerp, bool swaplatlong )
 {
     try
     {
-        m_pGeoCoords->Reset(StringConvert::ManagedToUnmanaged(s), centerp, longfirst);
+        m_pGeoCoords->Reset(StringConvert::ManagedToUnmanaged(s), centerp, swaplatlong);
     }
     catch ( const std::exception& err )
     {
@@ -194,16 +194,16 @@ double GeoCoords::MajorRadius::get() { return UTMUPS::MajorRadius(); }
 double GeoCoords::Flattening::get() { return UTMUPS::Flattening(); }
 
 //*****************************************************************************
-System::String^ GeoCoords::GeoRepresentation(int prec, bool longfirst )
+System::String^ GeoCoords::GeoRepresentation(int prec, bool swaplatlong )
 {
-    return gcnew System::String( m_pGeoCoords->GeoRepresentation(prec, longfirst).c_str() );
+    return gcnew System::String( m_pGeoCoords->GeoRepresentation(prec, swaplatlong).c_str() );
 }
 
 //*****************************************************************************
-System::String^ GeoCoords::DMSRepresentation(int prec, bool longfirst,
+System::String^ GeoCoords::DMSRepresentation(int prec, bool swaplatlong,
                                 char dmssep )
 {
-    return gcnew System::String( m_pGeoCoords->DMSRepresentation(prec, longfirst, dmssep).c_str() );
+    return gcnew System::String( m_pGeoCoords->DMSRepresentation(prec, swaplatlong, dmssep).c_str() );
 }
 
 //*****************************************************************************
@@ -213,15 +213,15 @@ System::String^ GeoCoords::MGRSRepresentation(int prec)
 }
 
 //*****************************************************************************
-System::String^ GeoCoords::UTMUPSRepresentation(int prec, bool abbrev)
+System::String^ GeoCoords::UTMUPSRepresentation(int prec)
 {
-    return gcnew System::String( m_pGeoCoords->UTMUPSRepresentation(prec, abbrev).c_str() );
+    return gcnew System::String( m_pGeoCoords->UTMUPSRepresentation(prec).c_str() );
 }
 
 //*****************************************************************************
-System::String^ GeoCoords::UTMUPSRepresentation(bool northp, int prec, bool abbrev)
+System::String^ GeoCoords::UTMUPSRepresentation(bool northp, int prec)
 {
-    return gcnew System::String( m_pGeoCoords->UTMUPSRepresentation(northp, prec, abbrev).c_str() );
+    return gcnew System::String( m_pGeoCoords->UTMUPSRepresentation(northp, prec).c_str() );
 }
 
 //*****************************************************************************
@@ -231,13 +231,13 @@ System::String^ GeoCoords::AltMGRSRepresentation(int prec)
 }
 
 //*****************************************************************************
-System::String^ GeoCoords::AltUTMUPSRepresentation(int prec, bool abbrev)
+System::String^ GeoCoords::AltUTMUPSRepresentation(int prec)
 {
-    return gcnew System::String( m_pGeoCoords->AltUTMUPSRepresentation(prec, abbrev).c_str() );
+    return gcnew System::String( m_pGeoCoords->AltUTMUPSRepresentation(prec).c_str() );
 }
 
 //*****************************************************************************
-System::String^ GeoCoords::AltUTMUPSRepresentation(bool northp, int prec, bool abbrev)
+System::String^ GeoCoords::AltUTMUPSRepresentation(bool northp, int prec)
 {
-    return gcnew System::String( m_pGeoCoords->AltUTMUPSRepresentation(northp, prec, abbrev).c_str() );
+    return gcnew System::String( m_pGeoCoords->AltUTMUPSRepresentation(northp, prec).c_str() );
 }

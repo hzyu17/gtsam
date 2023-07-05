@@ -6,11 +6,10 @@
  * GeographicLib is Copyright (c) Charles Karney (2010-2012)
  * <charles@karney.com> and licensed under the MIT/X11 License.
  * For more information, see
- * https://geographiclib.sourceforge.io/
+ * http://geographiclib.sourceforge.net/
  **********************************************************************/
 #include "stdafx.h"
 #include <GeographicLib/Geodesic.hpp>
-#include <GeographicLib/GeodesicLine.hpp>
 #include "Geodesic.h"
 #include "GeodesicLine.h"
 #include "NETGeographicLib.h"
@@ -51,7 +50,7 @@ Geodesic::Geodesic()
 {
     try
     {
-        m_pGeodesic = new GeographicLib::Geodesic( GeographicLib::Geodesic::WGS84() );
+        m_pGeodesic = new GeographicLib::Geodesic( GeographicLib::Geodesic::WGS84 );
     }
     catch ( std::bad_alloc )
     {
@@ -294,7 +293,7 @@ void Geodesic::ArcDirect(double lat1, double lon1, double azi1, double a12,
 //*****************************************************************************
 double Geodesic::GenDirect(double lat1, double lon1, double azi1,
                         bool arcmode, double s12_a12,
-                        Geodesic::mask outmask,
+                        NETGeographicLib::Mask outmask,
                         [System::Runtime::InteropServices::Out] double% lat2,
                         [System::Runtime::InteropServices::Out] double% lon2,
                         [System::Runtime::InteropServices::Out] double% azi2,
@@ -438,7 +437,7 @@ double Geodesic::Inverse(double lat1, double lon1, double lat2, double lon2,
 
 //*****************************************************************************
 double Geodesic::GenInverse(double lat1, double lon1, double lat2, double lon2,
-                        Geodesic::mask outmask,
+                        NETGeographicLib::Mask outmask,
                         [System::Runtime::InteropServices::Out] double% s12,
                         [System::Runtime::InteropServices::Out] double% azi1,
                         [System::Runtime::InteropServices::Out] double% azi2,
@@ -472,38 +471,6 @@ GeodesicLine^ Geodesic::Line(double lat1, double lon1, double azi1,
                              NETGeographicLib::Mask caps )
 {
     return gcnew GeodesicLine( this, lat1, lon1, azi1, caps );
-}
-
-//*****************************************************************************
-GeodesicLine^ Geodesic::InverseLine(double lat1, double lon1, double lat2,
-    double lon2, NETGeographicLib::Mask caps)
-{
-    return gcnew GeodesicLine(m_pGeodesic->InverseLine(lat1, lon1, lat2,
-        lon2, static_cast<unsigned int>(caps)));
-}
-
-//*****************************************************************************
-GeodesicLine^ Geodesic::DirectLine(double lat1, double lon1, double azi1,
-    double s12, NETGeographicLib::Mask caps)
-{
-    return gcnew GeodesicLine(m_pGeodesic->DirectLine(lat1, lon1, azi1,
-        s12, static_cast<unsigned int>(caps)));
-}
-
-//*****************************************************************************
-GeodesicLine^ Geodesic::ArcDirectLine(double lat1, double lon1, double azi1,
-    double a12, NETGeographicLib::Mask caps)
-{
-    return gcnew GeodesicLine(m_pGeodesic->ArcDirectLine(lat1, lon1, azi1,
-        a12, static_cast<unsigned int>(caps)));
-}
-
-//*****************************************************************************
-GeodesicLine^ Geodesic::GenDirectLine(double lat1, double lon1, double azi1,
-    bool arcmode, double s12_a12, NETGeographicLib::Mask caps)
-{
-    return gcnew GeodesicLine(m_pGeodesic->GenDirectLine(lat1, lon1, azi1,
-        arcmode, s12_a12, static_cast<unsigned int>(caps)));
 }
 
 //*****************************************************************************

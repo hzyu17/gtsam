@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -33,8 +33,8 @@ namespace gtsam {
 
   /* ************************************************************************* */
   void Factor::printKeys(const std::string& s, const KeyFormatter& formatter) const {
-    std::cout << (s.empty() ? "" : s + " ");
-    for (Key key : keys_) std::cout << " " << formatter(key);
+    std::cout << s << " ";
+    for(Key key: keys_) std::cout << " " << formatter(key);
     std::cout << std::endl;
   }
 
@@ -42,11 +42,5 @@ namespace gtsam {
   bool Factor::equals(const This& other, double tol) const {
     return keys_ == other.keys_;
   }
-
-  /* ************************************************************************* */
-  double Factor::error(const HybridValues& c) const {
-    throw std::runtime_error("Factor::error is not implemented");
-  }
-
 
 }

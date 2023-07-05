@@ -48,57 +48,17 @@ protected:
 
 public:
 
-  /// Default constructor only for wrappers
+  /// Default constructor only for Cython wrapper
   Marginals(){}
 
-  /** Construct a marginals class from a nonlinear factor graph.
+  /** Construct a marginals class.
    * @param graph The factor graph defining the full joint density on all variables.
    * @param solution The linearization point about which to compute Gaussian marginals (usually the MLE as obtained from a NonlinearOptimizer).
    * @param factorization The linear decomposition mode - either Marginals::CHOLESKY (faster and suitable for most problems) or Marginals::QR (slower but more numerically stable for poorly-conditioned problems).
-   */
-  Marginals(const NonlinearFactorGraph& graph, const Values& solution, Factorization factorization = CHOLESKY);
-
-  /** Construct a marginals class from a nonlinear factor graph.
-   * @param graph The factor graph defining the full joint density on all variables.
-   * @param solution The linearization point about which to compute Gaussian marginals (usually the MLE as obtained from a NonlinearOptimizer).
-   * @param factorization The linear decomposition mode - either Marginals::CHOLESKY (faster and suitable for most problems) or Marginals::QR (slower but more numerically stable for poorly-conditioned problems).
-   * @param ordering The ordering for elimination.
-   */
-  Marginals(const NonlinearFactorGraph& graph, const Values& solution, const Ordering& ordering,
-              Factorization factorization = CHOLESKY);
-
-  /** Construct a marginals class from a linear factor graph.
-   * @param graph The factor graph defining the full joint density on all variables.
-   * @param solution The solution point to compute Gaussian marginals.
-   * @param factorization The linear decomposition mode - either Marginals::CHOLESKY (faster and suitable for most problems) or Marginals::QR (slower but more numerically stable for poorly-conditioned problems).
-   */          
-  Marginals(const GaussianFactorGraph& graph, const Values& solution, Factorization factorization = CHOLESKY);
-
-  /** Construct a marginals class from a linear factor graph.
-   * @param graph The factor graph defining the full joint density on all variables.
-   * @param solution The solution point to compute Gaussian marginals.
-   * @param factorization The linear decomposition mode - either Marginals::CHOLESKY (faster and suitable for most problems) or Marginals::QR (slower but more numerically stable for poorly-conditioned problems).
-   * @param ordering The ordering for elimination.
-   */          
-  Marginals(const GaussianFactorGraph& graph, const Values& solution, const Ordering& ordering,
-              Factorization factorization = CHOLESKY);
-
-  /** Construct a marginals class from a linear factor graph.
-   * @param graph The factor graph defining the full joint density on all variables.
-   * @param solution The solution point to compute Gaussian marginals.
-   * @param factorization The linear decomposition mode - either Marginals::CHOLESKY (faster and suitable for most problems) or Marginals::QR (slower but more numerically stable for poorly-conditioned problems).
    * @param ordering An optional variable ordering for elimination.
-   */          
-  Marginals(const GaussianFactorGraph& graph, const VectorValues& solution, Factorization factorization = CHOLESKY);
-
-  /** Construct a marginals class from a linear factor graph.
-   * @param graph The factor graph defining the full joint density on all variables.
-   * @param solution The solution point to compute Gaussian marginals.
-   * @param factorization The linear decomposition mode - either Marginals::CHOLESKY (faster and suitable for most problems) or Marginals::QR (slower but more numerically stable for poorly-conditioned problems).
-   * @param ordering An optional variable ordering for elimination.
-   */          
-  Marginals(const GaussianFactorGraph& graph, const VectorValues& solution, const Ordering& ordering,
-              Factorization factorization = CHOLESKY);
+   */
+  Marginals(const NonlinearFactorGraph& graph, const Values& solution, Factorization factorization = CHOLESKY,
+            EliminateableFactorGraph<GaussianFactorGraph>::OptionalOrdering ordering = boost::none);
 
   /** print */
   void print(const std::string& str = "Marginals: ", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
@@ -114,21 +74,13 @@ public:
   Matrix marginalCovariance(Key variable) const;
 
   /** Compute the joint marginal covariance of several variables */
-  JointMarginal jointMarginalCovariance(const KeyVector& variables) const;
+  JointMarginal jointMarginalCovariance(const std::vector<Key>& variables) const;
 
   /** Compute the joint marginal information of several variables */
-  JointMarginal jointMarginalInformation(const KeyVector& variables) const;
+  JointMarginal jointMarginalInformation(const std::vector<Key>& variables) const;
 
   /** Optimize the bayes tree */
   VectorValues optimize() const;
-
-protected:
-  
-  /** Compute the Bayes Tree as a helper function to the constructor */
-  void computeBayesTree();
-
-  /** Compute the Bayes Tree as a helper function to the constructor */
-  void computeBayesTree(const Ordering& ordering);
 };
 
 /**
@@ -142,7 +94,7 @@ protected:
   FastMap<Key, size_t> indices_;
 
 public:
-  /// Default constructor only for wrappers
+  /// Default constructor only for Cython wrapper
   JointMarginal() {}
 
   /** Access a block, corresponding to a pair of variables, of the joint
@@ -178,7 +130,7 @@ public:
   void print(const std::string& s = "", const KeyFormatter& formatter = DefaultKeyFormatter) const;
 
 protected:
-  JointMarginal(const Matrix& fullMatrix, const std::vector<size_t>& dims, const KeyVector& keys) :
+  JointMarginal(const Matrix& fullMatrix, const std::vector<size_t>& dims, const std::vector<Key>& keys) :
     blockMatrix_(dims, fullMatrix), keys_(keys), indices_(Ordering(keys).invert()) {}
 
   friend class Marginals;

@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation,
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -42,8 +42,7 @@ Vector AttitudeFactor::attitudeError(const Rot3& nRb,
 //***************************************************************************
 void Rot3AttitudeFactor::print(const string& s,
     const KeyFormatter& keyFormatter) const {
-  cout << (s.empty() ? "" : s + " ") << "Rot3AttitudeFactor on "
-       << keyFormatter(this->key()) << "\n";
+  cout << s << "Rot3AttitudeFactor on " << keyFormatter(this->key()) << "\n";
   nZ_.print("  measured direction in nav frame: ");
   bRef_.print("  reference direction in body frame: ");
   this->noiseModel_->print("  noise model: ");
@@ -53,7 +52,7 @@ void Rot3AttitudeFactor::print(const string& s,
 bool Rot3AttitudeFactor::equals(const NonlinearFactor& expected,
     double tol) const {
   const This* e = dynamic_cast<const This*>(&expected);
-  return e != nullptr && Base::equals(*e, tol) && this->nZ_.equals(e->nZ_, tol)
+  return e != NULL && Base::equals(*e, tol) && this->nZ_.equals(e->nZ_, tol)
       && this->bRef_.equals(e->bRef_, tol);
 }
 
@@ -70,7 +69,7 @@ void Pose3AttitudeFactor::print(const string& s,
 bool Pose3AttitudeFactor::equals(const NonlinearFactor& expected,
     double tol) const {
   const This* e = dynamic_cast<const This*>(&expected);
-  return e != nullptr && Base::equals(*e, tol) && this->nZ_.equals(e->nZ_, tol)
+  return e != NULL && Base::equals(*e, tol) && this->nZ_.equals(e->nZ_, tol)
       && this->bRef_.equals(e->bRef_, tol);
 }
 

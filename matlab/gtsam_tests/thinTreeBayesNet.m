@@ -6,9 +6,8 @@ bayesNet = GaussianBayesNet;
 tree = thinTree(depth,width);
 
 % Add root to the Bayes net
-model = noiseModel.Isotropic.Sigma(1, 3*rand(1));
-gc = gtsam.GaussianConditional(1, 5*rand(1), 5*rand(1), model);
-bayesNet.push_back(gc);
+gc = gtsam.GaussianConditional(1, 5*rand(1), 5*rand(1), 3*rand(1));
+bayesNet.push_front(gc);
 
 n=tree.getNumberOfElements();
 for i=2:n
@@ -18,15 +17,13 @@ for i=2:n
   % Create and link the corresponding GaussianConditionals
   if tree.getW == 1 || di == 2
     % Creation of single-parent GaussianConditional
-    model = noiseModel.Isotropic.Sigma(1, 5*rand(1));
-    gc = gtsam.GaussianConditional(n-i, 5*rand(1), 5*rand(1), n-parents(1), 5*rand(1), model);
+    gc = gtsam.GaussianConditional(n-i, 5*rand(1), 5*rand(1), n-parents(1), 5*rand(1), 5*rand(1));
   elseif tree.getW == 2 || di == 3
     % GaussianConditionalj associated with the second parent
-    model = noiseModel.Isotropic.Sigma(1, 5*rand(1));
-    gc = gtsam.GaussianConditional(n-i, 5*rand(1), 5*rand(1), n-parents(1), 5*rand(1), n-parents(2), 5*rand(1), model);
+    gc = gtsam.GaussianConditional(n-i, 5*rand(1), 5*rand(1), n-parents(1), 5*rand(1), n-parents(2), 5*rand(1), 5*rand(1));
   end
   % Add conditional to the Bayes net
-  bayesNet.push_back(gc);
+  bayesNet.push_front(gc);
 end
 
 end

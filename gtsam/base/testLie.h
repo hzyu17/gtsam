@@ -10,8 +10,8 @@
  * -------------------------------------------------------------------------- */
 
 /*
- * @file testLie.h
- * @brief Test utilities for Lie groups
+ * @file chartTesting.h
+ * @brief
  * @date November, 2014
  * @author Paul Furgale
  */
