@@ -9,11 +9,11 @@ set (gtsam_subdirs
     discrete
     linear
     nonlinear
-    # sam
-    # sfm
-    # slam
-    # smart
-	# navigation
+    sam
+    sfm
+    slam
+    smart
+	navigation
 )
 
 set(gtsam_srcs)
